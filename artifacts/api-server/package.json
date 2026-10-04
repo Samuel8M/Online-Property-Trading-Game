@@ -7,6 +7,8 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
+    "test:timers": "node ./test-room-timers.mjs",
+    "test:timers-api": "GAME_API_TEST=1 node ./test-room-timers.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

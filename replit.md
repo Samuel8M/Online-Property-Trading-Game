@@ -9,6 +9,8 @@ An unofficial fan-made online Monopoly game for 2–6 visitors to play in shared
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm --filter @workspace/scripts run test:game` — game rules and room lifecycle unit tests
 - `pnpm --filter @workspace/scripts run test:game-api` — opt-in live API tests against the managed workflow; only test-created rooms are modified and cleaned up
+- `pnpm --filter @workspace/api-server run test:timers` — indexed timer concurrency/load checks in a temporary database schema
+- `pnpm --filter @workspace/api-server run test:timers-api` — timer checks plus live lifecycle API regression checks against the managed workflow
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
@@ -39,7 +41,7 @@ An unofficial fan-made online Monopoly game for 2–6 visitors to play in shared
 - Game mutations use PostgreSQL row locks so simultaneous requests cannot both take the same turn.
 - Rooms are persisted, not kept only in one server process. The client refreshes shared state every second.
 - Public turns last 90 seconds total, including doubles. The deadline is saved in room JSON and checked under the same row lock as player actions. Invalid or late actions cannot roll back elapsed-time reconciliation.
-- A five-second server sweep reconciles deadlines even without browser polling. On recovery from an outage, the next player gets a full turn instead of rapidly skipping a backlog of turns.
+- A five-second server sweep selects indexed due work, skips busy row locks, and drains bounded batches immediately while there is a backlog. Room writes update scheduling metadata atomically with saved state; direct database fixtures that change deadlines must also refresh `next_reconcile_at`. Existing rows receive an initial check through the column default. On recovery from an outage, the next player gets a full turn instead of rapidly skipping a backlog of turns.
 - Authenticated room polling records presence (writes at most once per ten seconds); no contact for 45 seconds means away. An away player's active-game seat and assets remain available to their saved browser token indefinitely. Away does not mean resignation.
 - In waiting rooms, a connected player takes over from an absent host, and seats are freed after five minutes away. Explicit lobby departure frees the seat immediately. Starting a room prevents later automatic seat reclamation.
 - Resignation is permanent and requires UI confirmation. Cash is forfeited; deeds, improvements, mortgages, and held Jail Free cards return to the bank; pending trades invalidate. The active turn advances, or the sole survivor wins.

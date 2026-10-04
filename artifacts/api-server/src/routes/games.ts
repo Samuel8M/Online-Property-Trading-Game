@@ -13,7 +13,7 @@ import {
   normalizeGame, manageProperty, proposeTrade, respondTrade, reconcileTrades,
    reconcileLifecycle, touchPresence, resign, resolveDebt, respondAuction,
 } from "../lib/game-engine";
-import { logger } from "../lib/logger";
+import { nextRoomCheck, sweepDueRooms } from "../lib/room-timers";
 
 const router: IRouter = Router();
 const creationTimes = new Map<string, number[]>();
@@ -23,7 +23,7 @@ async function mutate(code: string, fn: (game: StoredGame) => void, token?: stri
   let saved: StoredGame;
   try {
     await client.query("BEGIN");
-    const result = await client.query("SELECT state FROM game_rooms WHERE code = $1 FOR UPDATE", [code.toUpperCase()]);
+    const result = await client.query("SELECT state, next_reconcile_at FROM game_rooms WHERE code = $1 FOR UPDATE", [code.toUpperCase()]);
     if (!result.rows[0]) throw new GameError("That room does not exist. Check the code and try again.", 404);
     const original = JSON.stringify(result.rows[0].state);
     let game = result.rows[0].state as StoredGame;
@@ -40,8 +40,12 @@ async function mutate(code: string, fn: (game: StoredGame) => void, token?: stri
     }
     reconcileLifecycle(game, now); reconcileTrades(game); normalizeGame(game, now);
     const serialized = JSON.stringify(game);
-    if (serialized !== original) {
-      await client.query("UPDATE game_rooms SET state = $1, updated_at = NOW() WHERE code = $2", [serialized, game.code]);
+    const nextCheck = nextRoomCheck(game);
+    if (serialized !== original || nextCheck?.getTime() !== result.rows[0].next_reconcile_at?.getTime()) {
+      await client.query(
+        "UPDATE game_rooms SET state = $1, next_reconcile_at = $2, updated_at = CASE WHEN $3 THEN NOW() ELSE updated_at END WHERE code = $4",
+        [serialized, nextCheck, serialized !== original, game.code],
+      );
     }
     await client.query("COMMIT");
     saved = game;
@@ -56,14 +60,10 @@ async function mutate(code: string, fn: (game: StoredGame) => void, token?: stri
 // competing requests/processes serialize through the same row lock.
 let sweeping = false;
 export async function sweepRooms() {
-  if (sweeping) return;
+  if (sweeping) return false;
   sweeping = true;
   try {
-    const result = await pool.query("SELECT code FROM game_rooms WHERE state->>'phase' IN ('playing', 'lobby') AND updated_at > NOW() - INTERVAL '24 hours'");
-    for (const { code } of result.rows) {
-      try { await mutate(code, () => {}); }
-      catch (err) { logger.error({ err, code }, "Room timer reconciliation failed"); }
-    }
+    return (await sweepDueRooms()).saturated;
   } finally { sweeping = false; }
 }
 function codeOf(req: Request): string {
@@ -94,7 +94,7 @@ router.post("/games", async (req, res): Promise<void> => {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = randomBytes(3).toString("hex").toUpperCase();
     const { game, token } = createRoom(code, playerName);
-    const result = await pool.query("INSERT INTO game_rooms (code, state) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING code", [code, JSON.stringify(game)]);
+    const result = await pool.query("INSERT INTO game_rooms (code, state, next_reconcile_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING code", [code, JSON.stringify(game), nextRoomCheck(game)]);
     if (result.rowCount) {
       res.status(201).json(CreateGameResponse.parse({ game: view(game, token), sessionToken: token }));
       return;

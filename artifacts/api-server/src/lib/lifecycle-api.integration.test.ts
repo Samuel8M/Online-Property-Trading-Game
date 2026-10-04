@@ -26,7 +26,7 @@ async function fixture(code: string, change: (state: StoredGame) => void) {
     const result = await client.query("SELECT state FROM game_rooms WHERE code = $1 FOR UPDATE", [code]);
     const state = result.rows[0].state as StoredGame;
     change(state);
-    await client.query("UPDATE game_rooms SET state = $1 WHERE code = $2", [JSON.stringify(state), code]);
+    await client.query("UPDATE game_rooms SET state = $1, next_reconcile_at = NOW() WHERE code = $2", [JSON.stringify(state), code]);
     await client.query("COMMIT");
   } catch (error) { await client.query("ROLLBACK"); throw error; }
   finally { client.release(); }

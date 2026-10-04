@@ -23,7 +23,13 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  const sweep = () => { void sweepRooms().catch(err => logger.error({ err }, "Room timer sweep failed")); };
-  sweep();
-  setInterval(sweep, 5000).unref();
+  const sweep = async () => {
+    let saturated = false;
+    try { saturated = await sweepRooms(); }
+    catch (err) { logger.error({ err }, "Room timer sweep failed"); }
+    // Drain backlogs promptly, yielding between bounded batches. Normal idle
+    // polling remains every five seconds, with no overlapping sweep callbacks.
+    setTimeout(() => { void sweep(); }, saturated ? 0 : 5000).unref();
+  };
+  void sweep();
 });
