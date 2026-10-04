@@ -16,6 +16,22 @@ An unofficial fan-made online Monopoly game for 2–6 visitors to play in shared
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
 
+### Deadline sweep monitoring
+
+The API emits `event: "room_deadline_sweep"` structured summaries at most once
+every 30 seconds (including idle periods). `sweeps`, `processed`,
+`saturatedSweeps`, `failedRooms`, `failedSweeps`, `totalDurationMs`, and
+`maxDurationMs` describe batches since the previous report;
+`consecutiveSaturatedSweeps` describes the current drain streak.
+`oldestOverdueAgeMs` is a fresh, non-locking read of the oldest indexed deadline,
+including rows skipped by workers because of held locks. Zero means no overdue
+work; null with `overdueSampleFailed: true` means monitoring could not read it.
+Warnings fire at 15 seconds overdue or on sweep/sample failures, and return to
+info summaries on recovery. This is an operational warning threshold, not a
+game timeout. The read runs separately from reconciliation, is read-only, and
+has a 100ms SQL statement timeout. Summaries contain no room identifiers, saved
+state, or tokens. `/api/healthz` remains a static, database-free liveness check.
+
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9

@@ -9,6 +9,39 @@ export const ROOM_SWEEP_BATCH_SIZE = 100;
 export const ROOM_SWEEP_WORKERS = 4;
 export const ROOM_SWEEP_BUDGET_MS = 2000;
 
+export interface RoomSweepResult {
+  processed: number;
+  saturated: boolean;
+  durationMs: number;
+  failed: number;
+}
+
+// A non-locking, index-backed metadata read sees overdue rows even when the
+// workers skip their held locks. Run independently of reconciliation, not from
+// health checks. The short timeout also bounds waits for DDL/table locks.
+export async function oldestRoomOverdueAge(database = pool): Promise<number> {
+  const client = await database.connect();
+  try {
+    await client.query("BEGIN READ ONLY");
+    await client.query("SET LOCAL statement_timeout = '100ms'");
+    const result = await client.query(
+      `SELECT next_reconcile_at FROM game_rooms
+       WHERE next_reconcile_at <= $1
+       ORDER BY next_reconcile_at, code LIMIT 1`,
+      [new Date()],
+    );
+    await client.query("COMMIT");
+    return result.rows.length
+      ? Math.max(0, Date.now() - new Date(result.rows[0].next_reconcile_at).getTime())
+      : 0;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // Scheduling metadata is only a projection. Reconciliation still reads the saved
 // deadlines under the authoritative room lock, never a deadline from this index.
 export function nextRoomCheck(game: StoredGame): Date | null {
@@ -36,13 +69,13 @@ export function reconcileRoom(game: StoredGame, now: number) {
 
 // One room per transaction: neither row locks nor a slow room hold a whole
 // batch hostage. SKIP LOCKED also lets independent server processes share work.
-export async function sweepDueRooms(database = pool): Promise<{ processed: number; saturated: boolean }> {
-  const started = Date.now();
+export async function sweepDueRooms(database = pool): Promise<RoomSweepResult> {
+  const started = performance.now();
   let attempts = 0;
   let processed = 0;
   const failed: string[] = [];
   async function worker() {
-    while (attempts < ROOM_SWEEP_BATCH_SIZE && Date.now() - started < ROOM_SWEEP_BUDGET_MS) {
+    while (attempts < ROOM_SWEEP_BATCH_SIZE && performance.now() - started < ROOM_SWEEP_BUDGET_MS) {
       attempts++;
       const client = await database.connect();
       let code: string | undefined;
@@ -90,6 +123,8 @@ export async function sweepDueRooms(database = pool): Promise<{ processed: numbe
   if (failure?.status === "rejected") throw failure.reason;
   return {
     processed,
-    saturated: attempts >= ROOM_SWEEP_BATCH_SIZE || Date.now() - started >= ROOM_SWEEP_BUDGET_MS,
+    saturated: attempts >= ROOM_SWEEP_BATCH_SIZE || performance.now() - started >= ROOM_SWEEP_BUDGET_MS,
+    durationMs: performance.now() - started,
+    failed: failed.length,
   };
 }

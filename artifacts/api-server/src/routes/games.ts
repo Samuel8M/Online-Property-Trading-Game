@@ -60,10 +60,10 @@ async function mutate(code: string, fn: (game: StoredGame) => void, token?: stri
 // competing requests/processes serialize through the same row lock.
 let sweeping = false;
 export async function sweepRooms() {
-  if (sweeping) return false;
+  if (sweeping) return null;
   sweeping = true;
   try {
-    return (await sweepDueRooms()).saturated;
+    return await sweepDueRooms();
   } finally { sweeping = false; }
 }
 function codeOf(req: Request): string {

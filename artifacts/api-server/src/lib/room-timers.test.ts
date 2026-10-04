@@ -7,7 +7,7 @@ import {
   type StoredGame, TURN_DURATION_MS, PRESENCE_TIMEOUT_MS, LOBBY_SEAT_GRACE_MS,
   ROOM_ABANDONMENT_MS, AUCTION_DURATION_MS, touchPresence,
 } from "./game-engine";
-import { nextRoomCheck, sweepDueRooms, ROOM_SWEEP_BATCH_SIZE } from "./room-timers";
+import { nextRoomCheck, sweepDueRooms, oldestRoomOverdueAge, ROOM_SWEEP_BATCH_SIZE } from "./room-timers";
 
 function room(code: string, playing = true) {
   const { game, token } = createRoom(code, "Host");
@@ -57,6 +57,26 @@ test("indexed due-room processing stays bounded and never waits for a busy table
   }
   try {
     await database.query("CREATE TABLE game_rooms (LIKE public.game_rooms INCLUDING ALL)");
+    await t.test("an empty queue is distinguishable from an unavailable sample", async () => {
+      assert.equal(await oldestRoomOverdueAge(database), 0);
+      const result = await sweepDueRooms(database);
+      assert.equal(result.processed, 0);
+      assert.equal(result.saturated, false);
+      assert.equal(result.failed, 0);
+      assert.ok(result.durationMs >= 0);
+      const ddl = await database.connect();
+      try {
+        await ddl.query("BEGIN");
+        await ddl.query("LOCK TABLE game_rooms IN ACCESS EXCLUSIVE MODE");
+        const began = performance.now();
+        await assert.rejects(oldestRoomOverdueAge(database), /statement timeout/);
+        assert.ok(performance.now() - began < 1000, "monitoring has a short server-side timeout");
+      } finally {
+        await ddl.query("ROLLBACK");
+        ddl.release();
+      }
+      assert.equal(await oldestRoomOverdueAge(database), 0, "timeout releases and resets the connection");
+    });
     await t.test("a held oldest row cannot delay other deadlines; concurrent sweeps skip each turn once", async () => {
       const busy = room("BUSY");
       busy.turnDeadline = Date.now() - 5000;
@@ -84,12 +104,19 @@ test("indexed due-room processing stays bounded and never waits for a busy table
            ORDER BY next_reconcile_at, code LIMIT 1 FOR UPDATE SKIP LOCKED`,
         );
         assert.match(plan.rows.map(row => row["QUERY PLAN"]).join("\n"), /Index Scan.*game_rooms/i);
+        const samplePlan = await database.query(
+          `EXPLAIN SELECT next_reconcile_at FROM game_rooms WHERE next_reconcile_at <= NOW()
+           ORDER BY next_reconcile_at, code LIMIT 1`,
+        );
+        assert.match(samplePlan.rows.map(row => row["QUERY PLAN"]).join("\n"), /Index(?: Only)? Scan.*game_rooms/i);
 
         const began = Date.now();
         const first = await Promise.all([sweepDueRooms(database), sweepDueRooms(database)]);
         for (const result of first) {
           assert.ok(result.processed <= ROOM_SWEEP_BATCH_SIZE);
           assert.equal(result.saturated, true);
+          assert.ok(result.durationMs >= 0);
+          assert.equal(result.failed, 0);
         }
         assert.ok(first.reduce((n, result) => n + result.processed, 0) > 0);
         // Saturated batches are drained immediately, not delayed another five seconds.
@@ -107,6 +134,11 @@ test("indexed due-room processing stays bounded and never waits for a busy table
           assert.ok(game.turnDeadline! > Date.now() + 80_000, "outage recovery gives a full new turn");
         }
         assert.equal((await saved("BUSY")).turnNumber, 1);
+        const lockedOnly = await sweepDueRooms(database);
+        assert.equal(lockedOnly.processed, 0);
+        assert.equal(lockedOnly.saturated, false);
+        assert.ok(await oldestRoomOverdueAge(database) >= 5000,
+          "an apparently empty SKIP LOCKED batch still reports the held overdue deadline");
         const untouched = await database.query("SELECT count(*)::int AS n FROM game_rooms WHERE code LIKE 'IDLE%' AND updated_at < $1", [new Date(began)]);
         assert.equal(untouched.rows[0].n, 1200);
       } finally {
@@ -115,6 +147,7 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       }
       await Promise.all([sweepDueRooms(database), sweepDueRooms(database)]);
       assert.equal((await saved("BUSY")).turnNumber, 2);
+      assert.equal(await oldestRoomOverdueAge(database), 0);
       await database.query("TRUNCATE game_rooms");
     });
 

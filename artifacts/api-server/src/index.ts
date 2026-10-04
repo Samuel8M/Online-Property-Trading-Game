@@ -1,6 +1,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { sweepRooms } from "./routes/games";
+import { oldestRoomOverdueAge } from "./lib/room-timers";
+import { RoomSweepMonitor } from "./lib/room-sweep-monitor";
 
 const rawPort = process.env["PORT"];
 
@@ -23,10 +25,23 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  const monitor = new RoomSweepMonitor(logger, oldestRoomOverdueAge);
   const sweep = async () => {
     let saturated = false;
-    try { saturated = await sweepRooms(); }
-    catch (err) { logger.error({ err }, "Room timer sweep failed"); }
+    try {
+      const result = await sweepRooms();
+      if (result) {
+        saturated = result.saturated;
+        monitor.record(result);
+      }
+    } catch (err) {
+      monitor.recordFailure();
+      logger.error({ err }, "Room timer sweep failed");
+    }
+    // Deliberately detached: the metadata probe/logging must not hold up work.
+    void monitor.report().catch(() => {
+      logger.warn({ event: "room_deadline_monitor_failed" }, "Room deadline monitoring failed");
+    });
     // Drain backlogs promptly, yielding between bounded batches. Normal idle
     // polling remains every five seconds, with no overlapping sweep callbacks.
     setTimeout(() => { void sweep(); }, saturated ? 0 : 5000).unref();

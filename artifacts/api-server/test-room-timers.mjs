@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 // Bundle workspace TS entrypoints; native Node cannot resolve their imports.
 const dir = await mkdtemp(join(tmpdir(), "room-timer-tests-"));
 try {
-  const tests = ["room-timers.test"];
+  const tests = ["room-timers.test", "room-sweep-monitor.test"];
   if (process.env.GAME_API_TEST === "1") tests.push("lifecycle-api.integration.test");
   const outfiles = await Promise.all(tests.map(async name => {
     const outfile = join(dir, `${name}.cjs`);
