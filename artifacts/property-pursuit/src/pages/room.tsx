@@ -10,6 +10,7 @@ import {
   useJoinGame,
   useRollDice,
   useStartGame,
+  useLeaveJail,
 } from '@workspace/api-client-react';
 import type { GameView } from '@workspace/api-client-react';
 import { Tile, TileDetail } from '@/components/board';
@@ -37,16 +38,17 @@ export default function Room() {
   const roll = useRollDice();
   const buy = useBuyProperty();
   const end = useEndTurn();
+  const jail = useLeaveJail();
   const game = q.data;
 
   const lastTurnRoll = useRef('');
   useEffect(() => {
-    document.title = `Table ${code} · Property Pursuit`;
-    return () => { document.title = 'Property Pursuit'; };
+    document.title = `Table ${code} · Monopoly Online`;
+    return () => { document.title = 'Monopoly Online'; };
   }, [code]);
   useEffect(() => {
     if (!game) return;
-    const k = `${game.turnNumber}:${game.lastRoll.join(',')}`;
+    const k = `${game.turnNumber}:${game.rollSerial ?? 0}:${game.lastRoll.join(',')}`;
     if (k !== lastTurnRoll.current && game.lastRoll.length === 2) {
       lastTurnRoll.current = k;
       setRolling(true);
@@ -55,7 +57,7 @@ export default function Room() {
     }
     lastTurnRoll.current = k;
     return undefined;
-  }, [game?.turnNumber, game?.lastRoll.join(',')]);
+  }, [game?.turnNumber, game?.rollSerial, game?.lastRoll.join(',')]);
 
   const setGame = (g: GameView) => { setErr(''); qc.setQueryData(getGetGameQueryKey(code), g); };
   const act = (m: typeof start | typeof roll | typeof buy | typeof end) => {
@@ -91,17 +93,20 @@ export default function Room() {
   const myTurn = !!me && game.phase === 'playing' && game.currentPlayerId === me.id;
   const rolled = game.lastRoll.length === 2;
   const curSpace = cur ? game.board[cur.position] : undefined;
-   const canBuy = myTurn && rolled && !!curSpace && curSpace.price != null && !curSpace.ownerPlayerId && !!me && !me.bankrupt && me.cash >= curSpace.price && (curSpace.type === 'property' || curSpace.type === 'transit');
+   const canBuy = myTurn && rolled && !!curSpace && curSpace.price != null && !curSpace.ownerPlayerId && !!me && !me.bankrupt && me.cash >= curSpace.price && !me.jailed;
   const winner = game.players.find((p) => p.id === game.winnerPlayerId);
   const shown = game.board[sel ?? cur?.position ?? 0];
-  const busy = roll.isPending || buy.isPending || end.isPending || start.isPending;
+  const busy = roll.isPending || buy.isPending || end.isPending || start.isPending || jail.isPending;
+  const side = game.board.length / 4 + 1;
+  const extraRoll = game.extraRoll && !cur?.jailed && !cur?.bankrupt;
+  const leave = (method: 'pay' | 'card') => jail.mutate({ code, data: { sessionToken: token, method } }, { onSuccess: setGame, onError: e => setErr(errMsg(e)) });
   const link = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/room/${code}`;
   const canJoin = !me && game.phase === 'lobby';
 
   return (
     <main className="mx-auto min-h-[100dvh] max-w-[1400px] p-3 sm:p-6">
       <header className="mb-4 flex flex-wrap items-center gap-3">
-        <Link href="/" className="display text-2xl font-black" data-testid="link-home">Property <span className="text-primary">Pursuit</span></Link>
+        <Link href="/" className="display text-2xl font-black" data-testid="link-home">Monopoly <span className="text-primary">Online</span></Link>
         <span className="ml-auto flex flex-wrap gap-2">
           <button className="btn btn-gold !py-1.5 font-mono" onClick={() => copy('code', code)} data-testid="button-copy-code">{copied === 'code' ? 'Copied' : `Code ${code}`}</button>
           <button className="btn !py-1.5" onClick={() => copy('link', link)} data-testid="button-copy-link">{copied === 'link' ? 'Copied' : 'Copy invite link'}</button>
@@ -113,11 +118,13 @@ export default function Room() {
         {rules && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="panel mb-4 grid gap-2 p-5 text-sm sm:grid-cols-2" data-testid="panel-rules">
-              <p><b>Turn.</b> Roll both dice once and move that many spaces clockwise.</p>
-              <p><b>Start.</b> Everyone begins with $1,500 and earns $200 each time they pass Start.</p>
+              <p><b>Turn.</b> Roll both dice and move that many spaces. Doubles earn another roll after resolving the space. Three consecutive doubles send you to Jail.</p>
+              <p><b>GO.</b> Everyone begins with $1,500 and earns $200 each time they pass or land on GO.</p>
               <p><b>Buy.</b> Land on an unowned property you can afford and you may buy it, or pass.</p>
               <p><b>Rent.</b> Land on someone else's property and pay rent. Own a full color group and rent doubles.</p>
-               <p><b>Hazards.</b> Tax and Lucky Break spaces affect your cash. Detention costs $50 to leave on your next roll.</p>
+              <p><b>Cards & taxes.</b> Chance and Community Chest have separate decks. Income Tax costs $200; Luxury Tax costs $100.</p>
+              <p><b>Jail.</b> Before rolling, pay $50 or use a card. Otherwise try doubles up to three turns. On the third failed attempt, pay $50 and move. Doubles that release you do not earn another roll.</p>
+              <p><b>Utilities.</b> Rent is 4× the dice total, or 10× if the owner holds both. Railroad rent doubles for each additional railroad.</p>
               <p><b>Winning.</b> Bankrupt players are out. Last one standing wins.</p>
             </div>
           </motion.div>
@@ -125,12 +132,14 @@ export default function Room() {
       </AnimatePresence>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="mx-auto w-full max-w-[860px] rounded-3xl border-2 border-ink bg-felt p-2 shadow-[8px_8px_0_hsl(var(--foreground))] sm:p-3">
-          <div className="grid aspect-square w-full grid-cols-8 grid-rows-8 gap-[3px]">
+        <div className="mx-auto min-w-0 w-full max-w-[860px] rounded-3xl border-2 border-ink bg-felt p-2 shadow-[8px_8px_0_hsl(var(--foreground))] sm:p-3">
+          <p className="mb-2 text-center text-xs font-bold text-paper sm:hidden">Swipe across the board · Tap a space for details</p>
+          <div className="overflow-x-auto">
+          <div className="grid aspect-square w-full gap-[3px]" style={{ minWidth: game.board.length === 40 ? 620 : undefined, gridTemplateColumns: `repeat(${side}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${side}, minmax(0, 1fr))` }}>
             {game.board.map((s) => (
-              <Tile key={s.id} space={s} players={game.players} selected={sel === s.id} onSelect={() => setSel(sel === s.id ? null : s.id)} />
+              <Tile key={s.id} space={s} players={game.players} boardSize={game.board.length} selected={sel === s.id} onSelect={() => setSel(sel === s.id ? null : s.id)} />
             ))}
-            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-background/95 p-2 text-center" style={{ gridArea: '2 / 2 / 8 / 8' }}>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-background/95 p-2 text-center" style={{ gridArea: `2 / 2 / ${side} / ${side}` }}>
               <DicePair roll={game.lastRoll} rolling={rolling} />
               <AnimatePresence mode="wait">
                 <motion.p key={game.message} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -138,6 +147,7 @@ export default function Room() {
               </AnimatePresence>
               {shown && <div className="hidden w-full justify-center sm:flex"><TileDetail space={shown} players={game.players} /></div>}
             </div>
+          </div>
           </div>
         </div>
 
@@ -174,11 +184,17 @@ export default function Room() {
                   <span className="font-mono text-xs text-muted-foreground">Turn {game.turnNumber}</span>
                 </div>
                 {!me && <p className="text-sm text-muted-foreground">You are watching this game.</p>}
+                 {myTurn && me?.jailed && !rolled && <div className="space-y-2">
+                   <p className="text-sm">In Jail · attempt {(me.jailTurns ?? 0) + 1} of 3. Roll doubles to leave, or choose below.</p>
+                   <button className="btn w-full" disabled={busy || me.cash < 50} onClick={() => leave('pay')}>Pay $50 to leave Jail</button>
+                   {!!me.jailCards && <button className="btn w-full" disabled={busy} onClick={() => leave('card')}>Use Get Out of Jail Free card</button>}
+                 </div>}
                 {myTurn && !rolled && <button className="btn btn-primary w-full" disabled={busy} onClick={doRoll} data-testid="button-roll">{roll.isPending ? 'Rolling...' : 'Roll the dice'}</button>}
                 {myTurn && rolled && (
                   <div className="grid gap-2">
                     {canBuy && curSpace && <button className="btn btn-gold" disabled={busy} onClick={() => act(buy)} data-testid="button-buy">Buy {curSpace.name} for {money(curSpace.price)}</button>}
-                    <button className="btn" disabled={busy} onClick={() => act(end)} data-testid="button-end-turn">{canBuy ? 'Pass' : 'End turn'}</button>
+                     {extraRoll && <p className="text-sm font-bold text-primary">Doubles! You get another roll after resolving this space.</p>}
+                     <button className="btn" disabled={busy} onClick={() => act(end)} data-testid="button-end-turn">{extraRoll ? (canBuy ? 'Pass & roll again' : 'Continue — roll again') : (canBuy ? 'Pass' : 'End turn')}</button>
                   </div>
                 )}
                 {me && !myTurn && <p className="text-sm text-muted-foreground">Sit tight. It is not your turn.</p>}
@@ -200,6 +216,7 @@ export default function Room() {
                     {p.bankrupt && <span className="text-[10px] font-bold uppercase">Bankrupt</span>}
                     <span className="ml-auto font-mono font-bold">{money(p.cash)}</span>
                   </div>
+                   {!!p.jailCards && <p className="mt-1 text-xs">{p.jailCards} Get Out of Jail Free card{p.jailCards === 1 ? '' : 's'}</p>}
                   {p.properties.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {p.properties.map((id) => (

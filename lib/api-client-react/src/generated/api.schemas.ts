@@ -50,6 +50,8 @@ export interface GamePlayer {
   bankrupt: boolean;
   properties: number[];
   isHost: boolean;
+  jailTurns?: number;
+  jailCards?: number;
 }
 
 export type GameSpaceType = typeof GameSpaceType[keyof typeof GameSpaceType];
@@ -59,8 +61,10 @@ export const GameSpaceType = {
   start: 'start',
   property: 'property',
   transit: 'transit',
+  utility: 'utility',
   tax: 'tax',
   chance: 'chance',
+  'community-chest': 'community-chest',
   rest: 'rest',
   jail: 'jail',
   'go-to-jail': 'go-to-jail',
@@ -98,6 +102,9 @@ export interface GameView {
   /** @nullable */
   myPlayerId: string | null;
   createdAt: number;
+  consecutiveDoubles?: number;
+  extraRoll?: boolean;
+  rollSerial?: number;
 }
 
 export interface GameJoinResult {
@@ -125,5 +132,19 @@ export interface GameJoinInput {
 export interface GameActionInput {
   /** @minLength 16 */
   sessionToken: string;
+}
+
+export type JailChoiceInputMethod = typeof JailChoiceInputMethod[keyof typeof JailChoiceInputMethod];
+
+
+export const JailChoiceInputMethod = {
+  pay: 'pay',
+  card: 'card',
+} as const;
+
+export interface JailChoiceInput {
+  /** @minLength 16 */
+  sessionToken: string;
+  method: JailChoiceInputMethod;
 }
 

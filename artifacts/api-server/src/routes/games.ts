@@ -4,9 +4,9 @@ import { pool } from "@workspace/db";
 import {
   CreateGameBody, CreateGameResponse, GetGameParams, GetGameResponse,
   JoinGameBody, JoinGameResponse, StartGameBody, RollDiceBody, BuyPropertyBody,
-  EndTurnBody, ListGamesResponse,
+  EndTurnBody, ListGamesResponse, LeaveJailBody,
 } from "@workspace/api-zod";
-import { addPlayer, createRoom, view, start, roll, buy, end, GameError, type StoredGame } from "../lib/game-engine";
+import { addPlayer, createRoom, view, start, roll, buy, end, leaveJail, GameError, type StoredGame } from "../lib/game-engine";
 
 const router: IRouter = Router();
 const creationTimes = new Map<string, number[]>();
@@ -80,6 +80,12 @@ router.post("/games/:code/players", async (req, res): Promise<void> => {
     token = addPlayer(g, input.playerName);
   });
   res.json(JoinGameResponse.parse({ game: view(game, token), sessionToken: token }));
+});
+router.post("/games/:code/jail", async (req, res): Promise<void> => {
+  const code = codeOf(req);
+  const { sessionToken, method } = bodyOf<{ sessionToken: string; method: "pay" | "card" }>(LeaveJailBody, req.body);
+  const game = await mutate(code, g => leaveJail(g, sessionToken, method));
+  res.json(GetGameResponse.parse(view(game, sessionToken)));
 });
 for (const [path, schema, action] of [
   ["start", StartGameBody, start], ["roll", RollDiceBody, roll],

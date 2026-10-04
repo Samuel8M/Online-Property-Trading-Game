@@ -26,7 +26,8 @@ import type {
   GameJoinResult,
   GameRoomList,
   GameView,
-  HealthStatus
+  HealthStatus,
+  JailChoiceInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -730,6 +731,95 @@ export const useBuyProperty = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getBuyPropertyMutationOptions(options));
+    }
+
+export const getLeaveJailUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}/jail`
+}
+
+/**
+ * @summary Pay the jail fine or use a Get Out of Jail Free card before rolling
+ */
+export const leaveJail = async (code: string,
+    jailChoiceInput: JailChoiceInput, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameView>(getLeaveJailUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(jailChoiceInput)
+  }
+);}
+
+
+
+
+
+export const getLeaveJailMutationKey = () => ['leaveJail'] as const;
+
+export const getLeaveJailMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveJail>>, TError,LeaveJailMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveJail>>, TError,LeaveJailMutationVariables, TContext> => {
+
+const mutationKey = getLeaveJailMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveJail>>, LeaveJailMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  leaveJail(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveJailMutationResult = NonNullable<Awaited<ReturnType<typeof leaveJail>>>
+    export type LeaveJailMutationBody = BodyType<JailChoiceInput>
+    export type LeaveJailMutationError = ErrorType<unknown>
+    export type LeaveJailMutationVariables = {code: string;data: BodyType<JailChoiceInput>}
+
+    /**
+ * @summary Pay the jail fine or use a Get Out of Jail Free card before rolling
+ */
+export const useLeaveJail = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveJail>>, TError,LeaveJailMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof leaveJail>>,
+        TError,
+        LeaveJailMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLeaveJailMutationOptions(options));
     }
 
 export const getEndTurnUrl = (code: string,) => {

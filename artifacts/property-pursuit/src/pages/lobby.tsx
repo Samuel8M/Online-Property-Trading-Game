@@ -57,11 +57,12 @@ export default function Lobby() {
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-primary">A game for 2 to 6 friends</p>
           <h1 className="display mt-3 text-6xl font-black leading-[0.9] sm:text-8xl">
-            Property<br /><span className="text-primary">Pursuit</span>
+            Monopoly<br /><span className="text-primary">Online</span>
           </h1>
           <p className="mt-5 max-w-md text-lg text-muted-foreground">
-            Roll, buy, collect color sets, and bleed your friends dry in rent. One table, twenty-eight spaces, no mercy.
+            Forty classic spaces. Buy streets, collect rent, and roll again on doubles. Play at a shared online table with your friends.
           </p>
+          <p className="mt-3 text-xs text-muted-foreground">Unofficial fan-made adaptation. Not affiliated with Hasbro.</p>
         </div>
         <div className="relative flex h-48 items-center justify-center">
           <motion.div animate={{ rotate: [-8, 8, -8] }} transition={{ repeat: Infinity, duration: 6 }}><Die value={5} /></motion.div>

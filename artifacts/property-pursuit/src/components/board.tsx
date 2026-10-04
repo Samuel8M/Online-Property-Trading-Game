@@ -2,21 +2,22 @@ import { motion } from 'framer-motion';
 import type { GamePlayer, GameSpace } from '@workspace/api-client-react';
 import { money } from '@/lib/session';
 
-export function gridPos(i: number): { row: number; col: number } {
-  if (i <= 7) return { row: 8, col: 8 - i };
-  if (i <= 13) return { row: 8 - (i - 7), col: 1 };
-  if (i <= 21) return { row: 1, col: i - 13 };
-  return { row: i - 21 + 1, col: 8 };
+export function gridPos(i: number, boardSize = 40): { row: number; col: number } {
+  const edge = boardSize / 4, side = edge + 1;
+  if (i <= edge) return { row: side, col: side - i };
+  if (i <= edge * 2) return { row: side - (i - edge), col: 1 };
+  if (i <= edge * 3) return { row: 1, col: i - edge * 2 + 1 };
+  return { row: i - edge * 3 + 1, col: side };
 }
 
 const GLYPH: Record<string, string> = {
-  start: 'GO', transit: 'RAIL', tax: 'TAX', chance: '?', rest: 'REST', jail: 'JAIL', 'go-to-jail': 'ARREST',
+  start: 'GO', transit: 'RAIL', utility: 'UTILITY', tax: 'TAX', chance: '?', 'community-chest': 'CHEST', rest: 'REST', jail: 'JAIL', 'go-to-jail': 'JAIL',
 };
 
-export function Tile({ space, players, selected, onSelect }: {
-  space: GameSpace; players: GamePlayer[]; selected: boolean; onSelect: () => void;
+export function Tile({ space, players, selected, onSelect, boardSize = 40 }: {
+  space: GameSpace; players: GamePlayer[]; selected: boolean; onSelect: () => void; boardSize?: number;
 }) {
-  const { row, col } = gridPos(space.id);
+  const { row, col } = gridPos(space.id, boardSize);
   const owner = players.find((p) => p.id === space.ownerPlayerId);
   const here = players.filter((p) => p.position === space.id && !p.bankrupt);
   const isProp = space.type === 'property';
@@ -31,7 +32,7 @@ export function Tile({ space, players, selected, onSelect }: {
       {!isProp && <span className="h-[10%] w-full shrink-0" style={{ background: space.color }} />}
       <span className="flex flex-1 flex-col items-center justify-center px-0.5 text-center leading-[1.05]">
         {!isProp && <span className="display text-[9px] font-black text-primary sm:text-xs">{GLYPH[space.type]}</span>}
-        <span className="text-[7px] font-bold sm:text-[10px]">{space.name}</span>
+         <span className="max-w-full break-words text-[7px] font-bold sm:text-[10px]" style={{ overflowWrap: 'anywhere' }}>{space.name}</span>
         {space.price != null && <span className="font-mono text-[7px] text-muted-foreground sm:text-[9px]">{money(space.price)}</span>}
       </span>
       {here.length > 0 && (
@@ -56,7 +57,7 @@ export function TileDetail({ space, players }: { space: GameSpace; players: Game
       </div>
       <div className="space-y-1 p-3 text-sm">
         <p className="text-muted-foreground">{space.description}</p>
-        {space.price != null && <p className="font-mono">Price {money(space.price)}{space.rent != null ? ` / Rent ${money(space.rent)}` : ''}</p>}
+         {space.price != null && <p className="font-mono">Price {money(space.price)}{space.rent != null ? ` / Rent ${space.type === 'utility' ? '4× / 10× dice' : money(space.rent)}` : ''}</p>}
         {owner && <p className="font-bold" style={{ color: owner.color }}>Owned by {owner.name}</p>}
         {!owner && space.price != null && <p className="font-bold text-primary">Available</p>}
       </div>

@@ -56,12 +56,14 @@ export const CreateGameResponse = zod.object({
   "jailed": zod.boolean(),
   "bankrupt": zod.boolean(),
   "properties": zod.array(zod.number().int()),
-  "isHost": zod.boolean()
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
-  "type": zod.enum(['start', 'property', 'transit', 'tax', 'chance', 'rest', 'jail', 'go-to-jail']),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
   "price": zod.number().int().nullable(),
   "rent": zod.number().int().nullable(),
   "group": zod.string().nullable(),
@@ -76,7 +78,10 @@ export const CreateGameResponse = zod.object({
   "history": zod.array(zod.string()),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
 })
@@ -106,12 +111,14 @@ export const GetGameResponse = zod.object({
   "jailed": zod.boolean(),
   "bankrupt": zod.boolean(),
   "properties": zod.array(zod.number().int()),
-  "isHost": zod.boolean()
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
-  "type": zod.enum(['start', 'property', 'transit', 'tax', 'chance', 'rest', 'jail', 'go-to-jail']),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
   "price": zod.number().int().nullable(),
   "rent": zod.number().int().nullable(),
   "group": zod.string().nullable(),
@@ -126,7 +133,10 @@ export const GetGameResponse = zod.object({
   "history": zod.array(zod.string()),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
 })
 
 
@@ -164,12 +174,14 @@ export const JoinGameResponse = zod.object({
   "jailed": zod.boolean(),
   "bankrupt": zod.boolean(),
   "properties": zod.array(zod.number().int()),
-  "isHost": zod.boolean()
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
-  "type": zod.enum(['start', 'property', 'transit', 'tax', 'chance', 'rest', 'jail', 'go-to-jail']),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
   "price": zod.number().int().nullable(),
   "rent": zod.number().int().nullable(),
   "group": zod.string().nullable(),
@@ -184,7 +196,10 @@ export const JoinGameResponse = zod.object({
   "history": zod.array(zod.string()),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
 })
@@ -217,12 +232,14 @@ export const StartGameResponse = zod.object({
   "jailed": zod.boolean(),
   "bankrupt": zod.boolean(),
   "properties": zod.array(zod.number().int()),
-  "isHost": zod.boolean()
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
-  "type": zod.enum(['start', 'property', 'transit', 'tax', 'chance', 'rest', 'jail', 'go-to-jail']),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
   "price": zod.number().int().nullable(),
   "rent": zod.number().int().nullable(),
   "group": zod.string().nullable(),
@@ -237,7 +254,10 @@ export const StartGameResponse = zod.object({
   "history": zod.array(zod.string()),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
 })
 
 
@@ -268,12 +288,14 @@ export const RollDiceResponse = zod.object({
   "jailed": zod.boolean(),
   "bankrupt": zod.boolean(),
   "properties": zod.array(zod.number().int()),
-  "isHost": zod.boolean()
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
-  "type": zod.enum(['start', 'property', 'transit', 'tax', 'chance', 'rest', 'jail', 'go-to-jail']),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
   "price": zod.number().int().nullable(),
   "rent": zod.number().int().nullable(),
   "group": zod.string().nullable(),
@@ -288,7 +310,10 @@ export const RollDiceResponse = zod.object({
   "history": zod.array(zod.string()),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
 })
 
 
@@ -319,12 +344,14 @@ export const BuyPropertyResponse = zod.object({
   "jailed": zod.boolean(),
   "bankrupt": zod.boolean(),
   "properties": zod.array(zod.number().int()),
-  "isHost": zod.boolean()
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
-  "type": zod.enum(['start', 'property', 'transit', 'tax', 'chance', 'rest', 'jail', 'go-to-jail']),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
   "price": zod.number().int().nullable(),
   "rent": zod.number().int().nullable(),
   "group": zod.string().nullable(),
@@ -339,7 +366,67 @@ export const BuyPropertyResponse = zod.object({
   "history": zod.array(zod.string()),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Pay the jail fine or use a Get Out of Jail Free card before rolling
+ */
+export const LeaveJailParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const leaveJailBodySessionTokenMin = 16;
+
+
+
+export const LeaveJailBody = zod.object({
+  "sessionToken": zod.string().min(leaveJailBodySessionTokenMin),
+  "method": zod.enum(['pay', 'card'])
+})
+
+export const LeaveJailResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string()
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
 })
 
 
@@ -370,12 +457,14 @@ export const EndTurnResponse = zod.object({
   "jailed": zod.boolean(),
   "bankrupt": zod.boolean(),
   "properties": zod.array(zod.number().int()),
-  "isHost": zod.boolean()
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
-  "type": zod.enum(['start', 'property', 'transit', 'tax', 'chance', 'rest', 'jail', 'go-to-jail']),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
   "price": zod.number().int().nullable(),
   "rent": zod.number().int().nullable(),
   "group": zod.string().nullable(),
@@ -390,7 +479,10 @@ export const EndTurnResponse = zod.object({
   "history": zod.array(zod.string()),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
 })
 
 

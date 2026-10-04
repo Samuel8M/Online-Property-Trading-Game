@@ -1,6 +1,6 @@
-# Property Pursuit
+# Monopoly Online
 
-An original multiplayer property-trading board game for 2–6 visitors to play in shared online rooms.
+An unofficial fan-made online Monopoly game for 2–6 visitors to play in shared rooms.
 
 ## Run & Operate
 
@@ -31,18 +31,19 @@ An original multiplayer property-trading board game for 2–6 visitors to play i
 
 ## Architecture decisions
 
-- Original names and a 28-space board rather than official Monopoly artwork or branding.
+- New rooms use the standard 40-space US Monopoly board and names, with original UI artwork and an unofficial fan-made notice.
+- Existing 28-space games already in progress are preserved rather than silently remapping positions and deeds. Old waiting rooms adopt the full board when started.
 - Anonymous seat sessions are not user accounts; visitors do not need to register.
 - Game mutations use PostgreSQL row locks so simultaneous requests cannot both take the same turn.
 - Rooms are persisted, not kept only in one server process. The client refreshes shared state every second.
 
 ## Product
 
-Public room discovery, create/join/watch, invite links, animated dice, property purchases, rent, complete-color bonuses, stations, taxes, surprise events, detention, bankruptcy, and a winner screen. The host starts after 2–6 players join. Each player rolls once per turn. This version does not include houses, hotels, mortgages, auctions, or player-to-player trades.
+Public room discovery, create/join/watch, invite links, animated dice, property purchases, rent, complete-color bonuses, railroads, dice-based utilities, taxes, separate shuffled Chance and Community Chest decks, Jail, bankruptcy, and a winner screen. Doubles earn another roll; three consecutive doubles send the player to Jail. Jail supports doubles attempts, a $50 fine, and Get Out of Jail Free cards. Houses, hotels, mortgages, auctions, and player-to-player trades are not yet part of the main build.
 
 ## User preferences
 
-The user wants anyone visiting the webpage to be able to play, with dice visuals and a polished game experience.
+The user wants anyone visiting the webpage to be able to play, with dice visuals and a polished game experience. They explicitly want Monopoly—not a shortened property-trading substitute—with the full board, trading, and extra rolls for doubles. Do not simplify that scope again.
 
 ## Gotchas
 

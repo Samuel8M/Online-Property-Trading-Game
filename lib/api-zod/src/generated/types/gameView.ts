@@ -25,4 +25,7 @@ export interface GameView {
   /** @nullable */
   myPlayerId: string | null;
   createdAt: number;
+  consecutiveDoubles?: number;
+  extraRoll?: boolean;
+  rollSerial?: number;
 }

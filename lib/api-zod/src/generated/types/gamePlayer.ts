@@ -16,4 +16,6 @@ export interface GamePlayer {
   bankrupt: boolean;
   properties: number[];
   isHost: boolean;
+  jailTurns?: number;
+  jailCards?: number;
 }

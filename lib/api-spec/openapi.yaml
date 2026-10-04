@@ -166,6 +166,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameView"
+  /games/{code}/jail:
+    post:
+      operationId: leaveJail
+      tags: [games]
+      summary: Pay the jail fine or use a Get Out of Jail Free card before rolling
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JailChoiceInput"
+      responses:
+        "200":
+          description: Player released from jail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
   /games/{code}/pass:
     post:
       operationId: endTurn
@@ -249,6 +272,9 @@ components:
         winnerPlayerId: { type: ["string", "null"] }
         myPlayerId: { type: ["string", "null"] }
         createdAt: { type: integer }
+        consecutiveDoubles: { type: integer }
+        extraRoll: { type: boolean }
+        rollSerial: { type: integer }
     GamePlayer:
       type: object
       required: [id, name, color, cash, position, jailed, bankrupt, properties, isHost]
@@ -264,13 +290,15 @@ components:
           type: array
           items: { type: integer }
         isHost: { type: boolean }
+        jailTurns: { type: integer }
+        jailCards: { type: integer }
     GameSpace:
       type: object
       required: [id, name, type, price, rent, group, ownerPlayerId, color, description]
       properties:
         id: { type: integer }
         name: { type: string }
-        type: { type: string, enum: [start, property, transit, tax, chance, rest, jail, go-to-jail] }
+        type: { type: string, enum: [start, property, transit, utility, tax, chance, community-chest, rest, jail, go-to-jail] }
         price: { type: ["integer", "null"] }
         rent: { type: ["integer", "null"] }
         group: { type: ["string", "null"] }
@@ -293,4 +321,10 @@ components:
       required: [sessionToken]
       properties:
         sessionToken: { type: string, minLength: 16 }
+    JailChoiceInput:
+      type: object
+      required: [sessionToken, method]
+      properties:
+        sessionToken: { type: string, minLength: 16 }
+        method: { type: string, enum: [pay, card] }
 

@@ -19,3 +19,5 @@ export * from './gameSpaceType';
 export * from './gameView';
 export * from './gameViewPhase';
 export * from './healthStatus';
+export * from './jailChoiceInput';
+export * from './jailChoiceInputMethod';
