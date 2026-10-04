@@ -4,6 +4,8 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import Lobby from '@/pages/lobby';
+import Room from '@/pages/room';
 import {
   Route,
   Switch,
@@ -13,20 +15,6 @@ import {
 
 const queryClient = new QueryClient();
 
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Replit Agent is building...
-        </h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Your app will appear here once it's ready.
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function Router() {
   return (
@@ -34,7 +22,8 @@ function Router() {
     // survives a page crash.
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={Lobby} />
+        <Route path="/room/:code" component={Room} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

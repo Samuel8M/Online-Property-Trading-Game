@@ -26,7 +26,6 @@ import type {
   GameJoinResult,
   GameRoomList,
   GameView,
-  GetGameParams,
   HealthStatus
 } from './api.schemas';
 
@@ -300,29 +299,20 @@ export const useCreateGame = <TError = ErrorType<unknown>,
       return useMutation(getCreateGameMutationOptions(options));
     }
 
-export const getGetGameUrl = (code: string,
-    params?: GetGameParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getGetGameUrl = (code: string,) => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/games/${code}?${stringifiedParams}` : `/api/games/${code}`
+  return `/api/games/${code}`
 }
 
 /**
  * @summary Get the current room and board state
  */
-export const getGame = async (code: string,
-    params?: GetGameParams, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+export const getGame = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
 
-  return customFetch<GameView>(getGetGameUrl(code,params),
+  return customFetch<GameView>(getGetGameUrl(code),
   {
     ...options,
     method: 'GET'
@@ -335,25 +325,23 @@ export const getGame = async (code: string,
 
 
 
-export const getGetGameQueryKey = (code: string,
-    params?: GetGameParams,) => {
+export const getGetGameQueryKey = (code: string,) => {
     return [
-    `/api/games/${code}`, ...(params ? [params] : [])
+    `/api/games/${code}`
     ] as const;
     }
 
 
-export const getGetGameQueryOptions = <TData = Awaited<ReturnType<typeof getGame>>, TError = ErrorType<void>>(code: string,
-    params?: GetGameParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGame>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetGameQueryOptions = <TData = Awaited<ReturnType<typeof getGame>>, TError = ErrorType<void>>(code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGame>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetGameQueryKey(code,params);
+  const queryKey =  queryOptions?.queryKey ?? getGetGameQueryKey(code);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGame>>> = ({ signal }) => getGame(code,params, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGame>>> = ({ signal }) => getGame(code, { signal, ...requestOptions });
 
 
 
@@ -371,12 +359,11 @@ export type GetGameQueryError = ErrorType<void>
  */
 
 export function useGetGame<TData = Awaited<ReturnType<typeof getGame>>, TError = ErrorType<void>>(
- code: string,
-    params?: GetGameParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGame>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGame>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetGameQueryOptions(code,params,options)
+  const queryOptions = getGetGameQueryOptions(code,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

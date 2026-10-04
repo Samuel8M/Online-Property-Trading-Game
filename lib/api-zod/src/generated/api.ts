@@ -94,10 +94,6 @@ export const GetGameParams = zod.object({
   "code": zod.coerce.string().min(getGamePathCodeMin).max(getGamePathCodeMax)
 })
 
-export const GetGameQueryParams = zod.object({
-  "sessionToken": zod.coerce.string().optional()
-})
-
 export const GetGameResponse = zod.object({
   "code": zod.string(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),

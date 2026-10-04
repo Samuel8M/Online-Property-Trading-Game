@@ -18,5 +18,4 @@ export * from './gameSpace';
 export * from './gameSpaceType';
 export * from './gameView';
 export * from './gameViewPhase';
-export * from './getGameParams';
 export * from './healthStatus';

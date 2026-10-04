@@ -1,10 +1,11 @@
-# [Project name]
+# Property Pursuit
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An original multiplayer property-trading board game for 2–6 visitors to play in shared online rooms.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/property-pursuit run dev` — run the web game through its managed workflow
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -22,23 +23,31 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/property-pursuit/src/` — lobby, board, dice, room controls, and browser seat persistence
+- `artifacts/api-server/src/lib/game-engine.ts` — server-owned game rules
+- `artifacts/api-server/src/routes/games.ts` — multiplayer game API
+- `lib/api-spec/openapi.yaml` — API contract
+- `lib/db/src/schema/game-rooms.ts` — saved room state
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Original names and a 28-space board rather than official Monopoly artwork or branding.
+- Anonymous seat sessions are not user accounts; visitors do not need to register.
+- Game mutations use PostgreSQL row locks so simultaneous requests cannot both take the same turn.
+- Rooms are persisted, not kept only in one server process. The client refreshes shared state every second.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Public room discovery, create/join/watch, invite links, animated dice, property purchases, rent, complete-color bonuses, stations, taxes, surprise events, detention, bankruptcy, and a winner screen. The host starts after 2–6 players join. Each player rolls once per turn. This version does not include houses, hotels, mortgages, auctions, or player-to-player trades.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+The user wants anyone visiting the webpage to be able to play, with dice visuals and a polished game experience.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Keep player session tokens private; never expose the room's token map in public game responses.
+- Run API codegen after contract changes. Watch for Orval name collisions when an operation has both path and query parameters.
 
 ## Pointers
 

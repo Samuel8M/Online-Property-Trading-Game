@@ -1,0 +1,1 @@
+- [API codegen collisions](api-codegen-collisions.md) — path-plus-query operations can generate conflicting barrel exports; browser client types need DOM iterable definitions.

@@ -65,10 +65,6 @@ paths:
           in: path
           required: true
           schema: { type: string, minLength: 4, maxLength: 8 }
-        - name: sessionToken
-          in: query
-          required: false
-          schema: { type: string }
       responses:
         "200":
           description: Current game state

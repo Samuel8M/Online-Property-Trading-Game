@@ -127,7 +127,3 @@ export interface GameActionInput {
   sessionToken: string;
 }
 
-export type GetGameParams = {
-sessionToken?: string;
-};
-
