@@ -212,6 +212,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameView"
+  /games/{code}/property:
+    post:
+      operationId: manageProperty
+      tags: [games]
+      summary: Build, sell a building, mortgage, or redeem an owned property
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropertyManagementInput"
+      responses:
+        "200":
+          description: Property managed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "400":
+          description: Invalid property action
+        "403":
+          description: Invalid player session
+        "404":
+          description: Room not found
+  /games/{code}/trades:
+    post:
+      operationId: proposeTrade
+      tags: [games]
+      summary: Propose a consensual cash and property exchange
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeProposalInput"
+      responses:
+        "200":
+          description: Offer proposed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "400":
+          description: Invalid trade
+        "403":
+          description: Invalid player session
+        "404":
+          description: Room not found
+  /games/{code}/trades/respond:
+    post:
+      operationId: respondTrade
+      tags: [games]
+      summary: Accept, reject, or cancel an existing offer
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeResponseInput"
+      responses:
+        "200":
+          description: Offer resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "400":
+          description: Invalid or stale trade
+        "403":
+          description: Unauthorized response
+        "404":
+          description: Room or offer not found
 components:
   schemas:
     HealthStatus:
@@ -248,7 +335,7 @@ components:
         sessionToken: { type: string }
     GameView:
       type: object
-      required: [code, phase, players, board, currentPlayerId, turnNumber, lastRoll, message, history, winnerPlayerId, myPlayerId, createdAt]
+      required: [code, phase, players, board, trades, currentPlayerId, turnNumber, lastRoll, message, history, winnerPlayerId, myPlayerId, createdAt]
       properties:
         code: { type: string }
         phase: { type: string, enum: [lobby, playing, finished] }
@@ -260,6 +347,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GameSpace"
+        trades:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameTrade"
         currentPlayerId: { type: ["string", "null"] }
         turnNumber: { type: integer }
         lastRoll:
@@ -294,7 +385,7 @@ components:
         jailCards: { type: integer }
     GameSpace:
       type: object
-      required: [id, name, type, price, rent, group, ownerPlayerId, color, description]
+      required: [id, name, type, price, rent, group, ownerPlayerId, color, description, buildingLevel, mortgaged, buildCost, currentRent]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -305,6 +396,68 @@ components:
         ownerPlayerId: { type: ["string", "null"] }
         color: { type: string }
         description: { type: string }
+        buildingLevel: { type: integer, minimum: 0, maximum: 5 }
+        mortgaged: { type: boolean }
+        buildCost: { type: ["integer", "null"] }
+        currentRent: { type: ["integer", "null"] }
+        developmentRents:
+          type: array
+          items: { type: integer }
+    GameTrade:
+      type: object
+      required: [id, proposerPlayerId, recipientPlayerId, offeredCash, requestedCash, offeredProperties, requestedProperties, status, createdTurn]
+      properties:
+        id: { type: string }
+        proposerPlayerId: { type: string }
+        recipientPlayerId: { type: string }
+        offeredCash: { type: integer }
+        requestedCash: { type: integer }
+        offeredProperties:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeProperty"
+        requestedProperties:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeProperty"
+        status: { type: string, enum: [pending, accepted, rejected, cancelled, invalidated] }
+        createdTurn: { type: integer }
+    TradeProperty:
+      type: object
+      required: [spaceId, mortgaged]
+      properties:
+        spaceId: { type: integer }
+        mortgaged: { type: boolean }
+    PropertyManagementInput:
+      type: object
+      required: [sessionToken, spaceId, action]
+      properties:
+        sessionToken: { type: string, minLength: 16 }
+        spaceId: { type: integer, minimum: 0, maximum: 39 }
+        action: { type: string, enum: [build, sell-building, mortgage, redeem] }
+    TradeProposalInput:
+      type: object
+      required: [sessionToken, recipientPlayerId, offeredCash, requestedCash, offeredPropertyIds, requestedPropertyIds]
+      properties:
+        sessionToken: { type: string, minLength: 16 }
+        recipientPlayerId: { type: string, minLength: 1 }
+        offeredCash: { type: integer, minimum: 0, maximum: 1000000 }
+        requestedCash: { type: integer, minimum: 0, maximum: 1000000 }
+        offeredPropertyIds:
+          type: array
+          maxItems: 40
+          items: { type: integer, minimum: 0, maximum: 39 }
+        requestedPropertyIds:
+          type: array
+          maxItems: 40
+          items: { type: integer, minimum: 0, maximum: 39 }
+    TradeResponseInput:
+      type: object
+      required: [sessionToken, tradeId, action]
+      properties:
+        sessionToken: { type: string, minLength: 16 }
+        tradeId: { type: string, minLength: 1 }
+        action: { type: string, enum: [accept, reject, cancel] }
     GameCreateInput:
       type: object
       required: [playerName]
@@ -327,4 +480,3 @@ components:
       properties:
         sessionToken: { type: string, minLength: 16 }
         method: { type: string, enum: [pay, card] }
-

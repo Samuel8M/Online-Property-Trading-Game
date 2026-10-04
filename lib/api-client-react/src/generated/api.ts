@@ -27,7 +27,10 @@ import type {
   GameRoomList,
   GameView,
   HealthStatus,
-  JailChoiceInput
+  JailChoiceInput,
+  PropertyManagementInput,
+  TradeProposalInput,
+  TradeResponseInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -909,5 +912,272 @@ export const useEndTurn = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getEndTurnMutationOptions(options));
+    }
+
+export const getManagePropertyUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}/property`
+}
+
+/**
+ * @summary Build, sell a building, mortgage, or redeem an owned property
+ */
+export const manageProperty = async (code: string,
+    propertyManagementInput: PropertyManagementInput, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameView>(getManagePropertyUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(propertyManagementInput)
+  }
+);}
+
+
+
+
+
+export const getManagePropertyMutationKey = () => ['manageProperty'] as const;
+
+export const getManagePropertyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof manageProperty>>, TError,ManagePropertyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof manageProperty>>, TError,ManagePropertyMutationVariables, TContext> => {
+
+const mutationKey = getManagePropertyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof manageProperty>>, ManagePropertyMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  manageProperty(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ManagePropertyMutationResult = NonNullable<Awaited<ReturnType<typeof manageProperty>>>
+    export type ManagePropertyMutationBody = BodyType<PropertyManagementInput>
+    export type ManagePropertyMutationError = ErrorType<void>
+    export type ManagePropertyMutationVariables = {code: string;data: BodyType<PropertyManagementInput>}
+
+    /**
+ * @summary Build, sell a building, mortgage, or redeem an owned property
+ */
+export const useManageProperty = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof manageProperty>>, TError,ManagePropertyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof manageProperty>>,
+        TError,
+        ManagePropertyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getManagePropertyMutationOptions(options));
+    }
+
+export const getProposeTradeUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}/trades`
+}
+
+/**
+ * @summary Propose a consensual cash and property exchange
+ */
+export const proposeTrade = async (code: string,
+    tradeProposalInput: TradeProposalInput, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameView>(getProposeTradeUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(tradeProposalInput)
+  }
+);}
+
+
+
+
+
+export const getProposeTradeMutationKey = () => ['proposeTrade'] as const;
+
+export const getProposeTradeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proposeTrade>>, TError,ProposeTradeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proposeTrade>>, TError,ProposeTradeMutationVariables, TContext> => {
+
+const mutationKey = getProposeTradeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proposeTrade>>, ProposeTradeMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  proposeTrade(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProposeTradeMutationResult = NonNullable<Awaited<ReturnType<typeof proposeTrade>>>
+    export type ProposeTradeMutationBody = BodyType<TradeProposalInput>
+    export type ProposeTradeMutationError = ErrorType<void>
+    export type ProposeTradeMutationVariables = {code: string;data: BodyType<TradeProposalInput>}
+
+    /**
+ * @summary Propose a consensual cash and property exchange
+ */
+export const useProposeTrade = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proposeTrade>>, TError,ProposeTradeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof proposeTrade>>,
+        TError,
+        ProposeTradeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProposeTradeMutationOptions(options));
+    }
+
+export const getRespondTradeUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}/trades/respond`
+}
+
+/**
+ * @summary Accept, reject, or cancel an existing offer
+ */
+export const respondTrade = async (code: string,
+    tradeResponseInput: TradeResponseInput, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameView>(getRespondTradeUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(tradeResponseInput)
+  }
+);}
+
+
+
+
+
+export const getRespondTradeMutationKey = () => ['respondTrade'] as const;
+
+export const getRespondTradeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondTrade>>, TError,RespondTradeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondTrade>>, TError,RespondTradeMutationVariables, TContext> => {
+
+const mutationKey = getRespondTradeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondTrade>>, RespondTradeMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  respondTrade(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondTradeMutationResult = NonNullable<Awaited<ReturnType<typeof respondTrade>>>
+    export type RespondTradeMutationBody = BodyType<TradeResponseInput>
+    export type RespondTradeMutationError = ErrorType<void>
+    export type RespondTradeMutationVariables = {code: string;data: BodyType<TradeResponseInput>}
+
+    /**
+ * @summary Accept, reject, or cancel an existing offer
+ */
+export const useRespondTrade = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondTrade>>, TError,RespondTradeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondTrade>>,
+        TError,
+        RespondTradeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRespondTradeMutationOptions(options));
     }
 

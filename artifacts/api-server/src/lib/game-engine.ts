@@ -1,5 +1,8 @@
 import { randomInt, randomUUID } from "node:crypto";
-import type { GameView, GamePlayer, GameSpace } from "@workspace/api-zod";
+import type {
+  GameView, GamePlayer, GameSpace, GameTrade, TradeProperty,
+  PropertyManagementInput, TradeProposalInput, TradeResponseInput,
+} from "@workspace/api-zod";
 import { classicBoard, chanceCards, chestCards, type ClassicCard } from "./classic-board";
 
 export type StoredGame = Omit<GameView, "myPlayerId"> & {
@@ -13,6 +16,10 @@ export class GameError extends Error {
 }
 
 const colors = ["#f97316", "#27b7b0", "#9b7cf4", "#e65b84", "#f0bb40", "#5482ee"];
+const buildingCosts: Record<string, number> = {
+  Copper: 50, Coral: 100, Garden: 100, Violet: 150, Sapphire: 150, Rose: 200, Gold: 200,
+  Brown: 50, "Light blue": 50, Pink: 100, Orange: 100, Red: 150, Yellow: 150, Green: 200, "Dark blue": 200,
+};
 export function makeBoard(): GameSpace[] {
   return classicBoard();
 }
@@ -20,6 +27,39 @@ export function makeBoard(): GameSpace[] {
 export function addHistory(game: StoredGame, text: string) {
   game.message = text;
   game.history = [text, ...game.history].slice(0, 60);
+}
+export function normalizeGame(game: StoredGame): StoredGame {
+  game.trades ??= [];
+  const classic = game.board.length === 40 ? classicBoard() : [];
+  for (const tile of game.board) {
+    tile.buildingLevel ??= 0;
+    tile.mortgaged ??= false;
+    tile.buildCost = tile.type === "property" ? buildingCosts[tile.group!] ?? null : null;
+    const original = classic[tile.id];
+    if (original?.name === tile.name && original.developmentRents) tile.developmentRents = original.developmentRents;
+    tile.currentRent = rentFor(game, tile);
+  }
+  return game;
+}
+function colorGroup(game: StoredGame, tile: GameSpace): GameSpace[] {
+  return game.board.filter(s => s.type === "property" && s.group === tile.group);
+}
+export function rentFor(game: StoredGame, tile: GameSpace): number | null {
+  if (tile.price === null) return null;
+  if (tile.mortgaged) return 0;
+  if (tile.type === "utility") {
+    const count = game.board.filter(s => s.type === "utility" && s.ownerPlayerId === tile.ownerPlayerId && !s.mortgaged).length;
+    return game.lastRoll.length ? game.lastRoll.reduce((a, b) => a + b, 0) * (tile.ownerPlayerId && count === 2 ? 10 : 4) : null;
+  }
+  if (tile.type === "transit") {
+    const count = game.board.filter(s => s.type === "transit" && s.ownerPlayerId === tile.ownerPlayerId && !s.mortgaged).length;
+    return tile.ownerPlayerId ? 25 * 2 ** (count - 1) : 25;
+  }
+  const level = tile.buildingLevel ?? 0;
+  if (level > 0) return tile.developmentRents?.[level] ?? tile.rent! * [1, 3, 5, 7, 9, 12][level]!;
+  const group = colorGroup(game, tile);
+  const complete = tile.ownerPlayerId && group.every(s => s.ownerPlayerId === tile.ownerPlayerId && !s.mortgaged);
+  return tile.rent! * (complete ? 2 : 1);
 }
 export function cleanName(raw: string) {
   const name = raw.trim().replace(/\s+/g, " ");
@@ -44,12 +84,13 @@ export function createRoom(code: string, name: string): { game: StoredGame; toke
   const game: StoredGame = {
     code, phase: "lobby", players: [], board: makeBoard(), currentPlayerId: null,
     turnNumber: 1, lastRoll: [], message: "", history: [], winnerPlayerId: null,
-    createdAt: Date.now(), tokens: {}, consecutiveDoubles: 0, extraRoll: false, rollSerial: 0,
+    createdAt: Date.now(), tokens: {}, trades: [], consecutiveDoubles: 0, extraRoll: false, rollSerial: 0,
     chanceDeck: shuffledDeck(), chestDeck: shuffledDeck(), heldJailCards: {},
   };
   return { game, token: addPlayer(game, name) };
 }
 export function view(game: StoredGame, token?: string): GameView {
+  normalizeGame(game);
   const { tokens, chanceDeck, chestDeck, heldJailCards, ...publicGame } = game;
   return { ...publicGame, myPlayerId: token ? tokens[token] ?? null : null };
 }
@@ -62,6 +103,12 @@ function activePlayer(game: StoredGame, token: string): GamePlayer {
   const player = playerFor(game, token);
   if (game.phase !== "playing") throw new GameError("The game is not in progress.");
   if (game.currentPlayerId !== player.id) throw new GameError("Wait for your turn.");
+  return player;
+}
+function livePlayer(game: StoredGame, token: string): GamePlayer {
+  const player = playerFor(game, token);
+  if (game.phase !== "playing") throw new GameError("The game is not in progress.");
+  if (player.bankrupt) throw new GameError("Bankrupt players cannot manage assets or trade.");
   return player;
 }
 function checkWinner(game: StoredGame) {
@@ -81,6 +128,7 @@ function pay(game: StoredGame, player: GamePlayer, amount: number, creditor?: Ga
     for (const tile of game.board.filter(s => s.ownerPlayerId === player.id)) {
       tile.ownerPlayerId = creditor?.id ?? null;
       if (creditor) creditor.properties.push(tile.id);
+      else { tile.buildingLevel = 0; tile.mortgaged = false; }
     }
     player.properties = [];
     const heldCards = game.heldJailCards?.[player.id] ?? [];
@@ -142,6 +190,11 @@ function drawCard(game: StoredGame, player: GamePlayer, deckType: "chance" | "ch
   } else {
     deck.push(id);
     if (card.jail) sendToJail(game, player);
+    else if (card.repairs) {
+      const amount = game.board.filter(s => s.ownerPlayerId === player.id).reduce((total, s) =>
+        total + (s.buildingLevel === 5 ? card.repairs!.hotel : (s.buildingLevel ?? 0) * card.repairs!.house), 0);
+      pay(game, player, amount);
+    }
     else if (card.money) {
       if (card.money > 0) player.cash += card.money;
       else pay(game, player, -card.money);
@@ -174,17 +227,15 @@ function resolveLanding(game: StoredGame, player: GamePlayer, rentMultiplier = 1
       addHistory(game, `${player.name} landed on their own ${tile.name}. Welcome home.`);
     } else {
       const owner = game.players.find(p => p.id === tile.ownerPlayerId)!;
-      let rent = tile.rent!;
-      if (tile.type === "transit") {
-        rent = 25 * 2 ** (game.board.filter(s => s.type === "transit" && s.ownerPlayerId === owner.id).length - 1);
-      } else if (tile.type === "utility") {
-        const both = game.board.filter(s => s.type === "utility" && s.ownerPlayerId === owner.id).length === 2;
-        const diceTotal = utilityCard ? randomInt(1, 7) + randomInt(1, 7) : game.lastRoll.reduce((a, b) => a + b, 0);
-        rent = diceTotal * (both || utilityCard ? 10 : 4);
-        if (utilityCard) addHistory(game, `${player.name} rolls a utility total of ${diceTotal}.`);
-      } else {
-        const group = game.board.filter(s => s.group === tile.group);
-        if (group.length > 1 && group.every(s => s.ownerPlayerId === owner.id)) rent *= 2;
+      if (tile.mortgaged) {
+        addHistory(game, `${player.name} landed on mortgaged ${tile.name}. No rent is due.`);
+        return;
+      }
+      let rent = rentFor(game, tile)!;
+      if (tile.type === "utility" && utilityCard) {
+        const diceTotal = randomInt(1, 7) + randomInt(1, 7);
+        rent = diceTotal * 10;
+        addHistory(game, `${player.name} rolls a utility total of ${diceTotal}.`);
       }
       rent *= rentMultiplier;
       addHistory(game, `${player.name} pays ${owner.name} $${rent} rent for ${tile.name}.`);
@@ -239,6 +290,12 @@ export function roll(game: StoredGame, token: string, dice: [number, number] = [
   const doubles = dice[0] === dice[1];
   game.extraRoll = false;
   if (player.jailed) {
+    if (game.board.length === 28) {
+      player.jailed = false;
+      addHistory(game, `${player.name} pays $50 and leaves Detention.`);
+      pay(game, player, 50);
+      if (player.bankrupt) return;
+    } else {
     game.consecutiveDoubles = 0;
     player.jailTurns = (player.jailTurns ?? 0) + 1;
     if (doubles) {
@@ -255,6 +312,7 @@ export function roll(game: StoredGame, token: string, dice: [number, number] = [
       player.jailed = false;
       player.jailTurns = 0;
     }
+    }
   } else {
     game.consecutiveDoubles = doubles ? (game.consecutiveDoubles ?? 0) + 1 : 0;
     if (game.consecutiveDoubles === 3) {
@@ -262,7 +320,7 @@ export function roll(game: StoredGame, token: string, dice: [number, number] = [
       sendToJail(game, player);
       return;
     }
-    game.extraRoll = doubles;
+    game.extraRoll = game.board.length === 40 && doubles;
   }
   const total = game.lastRoll[0]! + game.lastRoll[1]!;
   addHistory(game, `${player.name} rolled ${game.lastRoll[0]} + ${game.lastRoll[1]} = ${total}.`);
@@ -318,4 +376,120 @@ export function end(game: StoredGame, token: string) {
   game.turnNumber += 1;
   game.lastRoll = [];
   addHistory(game, `${next.name}'s turn. Time to roll.`);
+}
+
+export function manageProperty(game: StoredGame, input: PropertyManagementInput) {
+  const player = activePlayer(game, input.sessionToken);
+  if (player.bankrupt) throw new GameError("Bankrupt players cannot manage property.");
+  const tile = game.board.find(s => s.id === input.spaceId);
+  if (!tile || tile.price === null || tile.ownerPlayerId !== player.id) throw new GameError("Choose a property you own.");
+  const group = colorGroup(game, tile);
+  if (input.action === "mortgage") {
+    if (tile.mortgaged) throw new GameError("This property is already mortgaged.");
+    if (group.some(s => s.buildingLevel > 0)) throw new GameError("Sell every building in this color group before mortgaging.");
+    const advance = Math.floor(tile.price / 2);
+    tile.mortgaged = true; player.cash += advance;
+    addHistory(game, `${player.name} mortgaged ${tile.name} for $${advance}. No rent will be collected.`);
+  } else if (input.action === "redeem") {
+    if (!tile.mortgaged) throw new GameError("This property is not mortgaged.");
+    const cost = Math.ceil(Math.floor(tile.price / 2) * 11 / 10);
+    if (player.cash < cost) throw new GameError(`You need $${cost} to redeem this mortgage.`);
+    tile.mortgaged = false; player.cash -= cost;
+    addHistory(game, `${player.name} redeemed ${tile.name} for $${cost}.`);
+  } else if (input.action === "build") {
+    if (tile.type !== "property") throw new GameError("Stations and utilities cannot have buildings.");
+    if (!group.every(s => s.ownerPlayerId === player.id)) throw new GameError("Own the complete color group before building.");
+    if (group.some(s => s.mortgaged)) throw new GameError("Redeem every mortgage in this color group before building.");
+    if (tile.buildingLevel >= 5) throw new GameError("This property already has a hotel.");
+    if (tile.buildingLevel !== Math.min(...group.map(s => s.buildingLevel))) throw new GameError("Build evenly: choose a property with the fewest buildings.");
+    if (tile.buildCost == null) throw new GameError("Building cost is unavailable for this property.");
+    if (player.cash < tile.buildCost) throw new GameError(`You need $${tile.buildCost} to build here.`);
+    player.cash -= tile.buildCost; tile.buildingLevel++;
+    addHistory(game, `${player.name} built ${tile.buildingLevel === 5 ? "a hotel" : `house ${tile.buildingLevel}`} on ${tile.name} for $${tile.buildCost}.`);
+  } else if (input.action === "sell-building") {
+    if (tile.type !== "property" || tile.buildingLevel === 0) throw new GameError("There are no buildings to sell here.");
+    if (tile.buildingLevel !== Math.max(...group.map(s => s.buildingLevel))) throw new GameError("Sell evenly: choose a property with the most buildings.");
+    if (tile.buildCost == null) throw new GameError("Building cost is unavailable for this property.");
+    tile.buildingLevel--;
+    const refund = Math.floor(tile.buildCost / 2); player.cash += refund;
+    addHistory(game, `${player.name} sold one building level on ${tile.name} for $${refund}${tile.buildingLevel === 4 ? "; the hotel returns to four houses" : ""}.`);
+  } else throw new GameError("Unknown property action.");
+}
+
+function tradeAssets(game: StoredGame, ids: number[], ownerId: string): TradeProperty[] {
+  if (ids.length > game.board.length || new Set(ids).size !== ids.length) throw new GameError("Choose each property only once.");
+  return ids.map(id => {
+    const tile = game.board.find(s => s.id === id);
+    if (!tile || tile.price === null || tile.ownerPlayerId !== ownerId) throw new GameError("A traded property is no longer owned by the specified player.");
+    if (colorGroup(game, tile).some(s => s.buildingLevel > 0)) throw new GameError("Sell all buildings in a color group before trading any of its properties.");
+    return { spaceId: id, mortgaged: tile.mortgaged };
+  });
+}
+function validateTrade(game: StoredGame, trade: GameTrade) {
+  if (game.phase !== "playing") throw new GameError("The game is not in progress.");
+  const proposer = game.players.find(p => p.id === trade.proposerPlayerId);
+  const recipient = game.players.find(p => p.id === trade.recipientPlayerId);
+  if (!proposer || !recipient || proposer.id === recipient.id || proposer.bankrupt || recipient.bankrupt) throw new GameError("Choose another live player for this trade.");
+  for (const cash of [trade.offeredCash, trade.requestedCash]) {
+    if (!Number.isSafeInteger(cash) || cash < 0 || cash > 1_000_000) throw new GameError("Trade cash must be whole dollars between $0 and $1,000,000.");
+  }
+  if (proposer.cash < trade.offeredCash || recipient.cash < trade.requestedCash) throw new GameError("Both players must be able to afford the cash they offer.");
+  const offered = tradeAssets(game, trade.offeredProperties.map(p => p.spaceId), proposer.id);
+  const requested = tradeAssets(game, trade.requestedProperties.map(p => p.spaceId), recipient.id);
+  for (const [actual, snapshot] of [[offered, trade.offeredProperties], [requested, trade.requestedProperties]] as const) {
+    if (actual.some((p, i) => p.mortgaged !== snapshot[i]!.mortgaged)) throw new GameError("A mortgage changed since this offer was made. Propose a new trade.");
+  }
+  return { proposer, recipient };
+}
+export function proposeTrade(game: StoredGame, input: TradeProposalInput) {
+  const player = activePlayer(game, input.sessionToken);
+  if (player.bankrupt) throw new GameError("Bankrupt players cannot trade.");
+  if (game.trades.some(t => t.proposerPlayerId === player.id && t.status === "pending")) throw new GameError("Cancel your pending offer before proposing another.");
+  if (input.offeredCash === 0 && input.requestedCash === 0 && !input.offeredPropertyIds.length && !input.requestedPropertyIds.length) throw new GameError("Offer or request at least one property or some cash.");
+  const trade: GameTrade = {
+    id: randomUUID(), proposerPlayerId: player.id, recipientPlayerId: input.recipientPlayerId,
+    offeredCash: input.offeredCash, requestedCash: input.requestedCash,
+    offeredProperties: tradeAssets(game, input.offeredPropertyIds, player.id),
+    requestedProperties: tradeAssets(game, input.requestedPropertyIds, input.recipientPlayerId),
+    status: "pending", createdTurn: game.turnNumber,
+  };
+  const { recipient } = validateTrade(game, trade);
+  game.trades.unshift(trade);
+  addHistory(game, `${player.name} proposed a trade to ${recipient.name}. Nothing transfers until accepted.`);
+}
+export function respondTrade(game: StoredGame, input: TradeResponseInput) {
+  const player = livePlayer(game, input.sessionToken);
+  const trade = game.trades.find(t => t.id === input.tradeId);
+  if (!trade) throw new GameError("This trade does not exist.", 404);
+  if (trade.status !== "pending") throw new GameError(`This offer is already ${trade.status}.`);
+  if (input.action === "cancel") {
+    if (trade.proposerPlayerId !== player.id) throw new GameError("Only the proposer can cancel this offer.", 403);
+    trade.status = "cancelled";
+  } else if (input.action === "reject" || input.action === "accept") {
+    if (trade.recipientPlayerId !== player.id) throw new GameError("Only the recipient can respond to this offer.", 403);
+    if (input.action === "reject") trade.status = "rejected";
+    else {
+      const { proposer, recipient } = validateTrade(game, trade);
+      proposer.cash += trade.requestedCash - trade.offeredCash;
+      recipient.cash += trade.offeredCash - trade.requestedCash;
+      for (const [assets, nextOwner] of [[trade.offeredProperties, recipient], [trade.requestedProperties, proposer]] as const) {
+        for (const asset of assets) game.board.find(s => s.id === asset.spaceId)!.ownerPlayerId = nextOwner.id;
+      }
+      for (const p of [proposer, recipient]) p.properties = game.board.filter(s => s.ownerPlayerId === p.id).map(s => s.id);
+      trade.status = "accepted";
+    }
+  } else throw new GameError("Unknown trade response.");
+  addHistory(game, `${player.name} ${trade.status} the trade offer.`);
+}
+export function reconcileTrades(game: StoredGame) {
+  for (const trade of game.trades.filter(t => t.status === "pending")) {
+    try { validateTrade(game, trade); }
+    catch (error) {
+      if (!(error instanceof GameError)) throw error;
+      trade.status = "invalidated";
+      addHistory(game, `A trade offer was invalidated: ${error.message}`);
+    }
+  }
+  let resolved = 0;
+  game.trades = game.trades.filter(t => t.status === "pending" || ++resolved <= 30);
 }

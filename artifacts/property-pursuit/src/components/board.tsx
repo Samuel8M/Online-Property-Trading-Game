@@ -35,7 +35,9 @@ export function Tile({ space, players, selected, onSelect, boardSize = 40 }: {
       <span className="flex flex-1 flex-col items-center justify-center px-0.5 text-center leading-[1.05]">
         {!isProp && <span className="display font-black text-primary" style={{ fontSize: 'clamp(5px, 1.3cqw, 12px)' }}>{GLYPH[space.type]}</span>}
          <span className="max-w-full break-words font-bold" style={{ overflowWrap: 'anywhere', fontSize: 'clamp(5px, 1.12cqw, 10px)' }}>{space.name}</span>
-        {space.price != null && <span className="font-mono text-muted-foreground" style={{ fontSize: 'clamp(4px, 1cqw, 9px)' }}>{money(space.price)}</span>}
+        {space.price != null && <span className="font-mono text-muted-foreground" style={{ fontSize: 'clamp(4px, 1cqw, 9px)' }}>{space.ownerPlayerId ? (space.mortgaged ? 'Rent $0' : space.type === 'utility' ? '4× / 10× dice' : `Rent ${money(space.currentRent)}`) : money(space.price)}</span>}
+        {space.buildingLevel > 0 && <span className="font-mono font-black text-primary" style={{ fontSize: 'clamp(5px, 1.12cqw, 10px)' }} data-testid={`marker-build-${space.id}`}>{space.buildingLevel === 5 ? 'HOTEL' : 'H'.repeat(space.buildingLevel)}</span>}
+        {space.mortgaged && <span className="rounded bg-ink px-0.5 font-bold text-paper" style={{ fontSize: 'clamp(4px, 0.9cqw, 8px)' }} data-testid={`marker-mortgage-${space.id}`}>MORTGAGED</span>}
       </span>
       {here.length > 0 && (
         <span className="absolute bottom-0.5 left-0.5 right-0.5 flex flex-wrap justify-center gap-0.5">
@@ -61,6 +63,10 @@ export function TileDetail({ space, players }: { space: GameSpace; players: Game
         <p className="text-muted-foreground">{space.description}</p>
          {space.price != null && <p className="font-mono">Price {money(space.price)}{space.rent != null ? ` / Rent ${space.type === 'utility' ? '4× / 10× dice' : money(space.rent)}` : ''}</p>}
         {owner && <p className="font-bold" style={{ color: owner.color }}>Owned by {owner.name}</p>}
+        {space.price != null && <p className="font-mono text-xs">Current rent {space.mortgaged ? 'none (mortgaged)' : space.type === 'utility' ? '4× / 10× landing dice' : money(space.currentRent)}</p>}
+        {space.type === 'property' && <p className="text-xs">{space.buildingLevel === 0 ? 'No buildings' : space.buildingLevel === 5 ? 'Hotel' : `${space.buildingLevel} house${space.buildingLevel > 1 ? 's' : ''}`} · {money(space.buildCost)} per level</p>}
+        {space.developmentRents && <p className="font-mono text-[10px]">1/2/3/4 houses: {space.developmentRents.slice(1, 5).map(money).join(' / ')} · Hotel: {money(space.developmentRents[5])}</p>}
+        {space.mortgaged && <p className="text-xs font-bold">Redeem for {money(Math.ceil(Math.floor(space.price! / 2) * 11 / 10))}</p>}
         {!owner && space.price != null && <p className="font-bold text-primary">Available</p>}
       </div>
     </div>

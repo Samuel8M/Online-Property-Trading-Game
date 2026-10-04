@@ -84,6 +84,45 @@ export interface GameSpace {
   ownerPlayerId: string | null;
   color: string;
   description: string;
+  /**
+     * @minimum 0
+     * @maximum 5
+     */
+  buildingLevel: number;
+  mortgaged: boolean;
+  /** @nullable */
+  buildCost: number | null;
+  /** @nullable */
+  currentRent: number | null;
+  developmentRents?: number[];
+}
+
+export interface TradeProperty {
+  spaceId: number;
+  mortgaged: boolean;
+}
+
+export type GameTradeStatus = typeof GameTradeStatus[keyof typeof GameTradeStatus];
+
+
+export const GameTradeStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  rejected: 'rejected',
+  cancelled: 'cancelled',
+  invalidated: 'invalidated',
+} as const;
+
+export interface GameTrade {
+  id: string;
+  proposerPlayerId: string;
+  recipientPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredProperties: TradeProperty[];
+  requestedProperties: TradeProperty[];
+  status: GameTradeStatus;
+  createdTurn: number;
 }
 
 export interface GameView {
@@ -91,6 +130,7 @@ export interface GameView {
   phase: GameViewPhase;
   players: GamePlayer[];
   board: GameSpace[];
+  trades: GameTrade[];
   /** @nullable */
   currentPlayerId: string | null;
   turnNumber: number;
@@ -110,6 +150,73 @@ export interface GameView {
 export interface GameJoinResult {
   game: GameView;
   sessionToken: string;
+}
+
+export type PropertyManagementInputAction = typeof PropertyManagementInputAction[keyof typeof PropertyManagementInputAction];
+
+
+export const PropertyManagementInputAction = {
+  build: 'build',
+  'sell-building': 'sell-building',
+  mortgage: 'mortgage',
+  redeem: 'redeem',
+} as const;
+
+export interface PropertyManagementInput {
+  /** @minLength 16 */
+  sessionToken: string;
+  /**
+     * @minimum 0
+     * @maximum 39
+     */
+  spaceId: number;
+  action: PropertyManagementInputAction;
+}
+
+export interface TradeProposalInput {
+  /** @minLength 16 */
+  sessionToken: string;
+  /** @minLength 1 */
+  recipientPlayerId: string;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  offeredCash: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  requestedCash: number;
+  /**
+     * @maxItems 40
+     * @items.minimum 0
+     * @items.maximum 39
+     */
+  offeredPropertyIds: number[];
+  /**
+     * @maxItems 40
+     * @items.minimum 0
+     * @items.maximum 39
+     */
+  requestedPropertyIds: number[];
+}
+
+export type TradeResponseInputAction = typeof TradeResponseInputAction[keyof typeof TradeResponseInputAction];
+
+
+export const TradeResponseInputAction = {
+  accept: 'accept',
+  reject: 'reject',
+  cancel: 'cancel',
+} as const;
+
+export interface TradeResponseInput {
+  /** @minLength 16 */
+  sessionToken: string;
+  /** @minLength 1 */
+  tradeId: string;
+  action: TradeResponseInputAction;
 }
 
 export interface GameCreateInput {

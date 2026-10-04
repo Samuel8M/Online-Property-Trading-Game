@@ -14,6 +14,7 @@ import {
 } from '@workspace/api-client-react';
 import type { GameView } from '@workspace/api-client-react';
 import { Tile, TileDetail } from '@/components/board';
+import { ManagePanel, TradePanel } from '@/components/manage';
 import { DicePair } from '@/components/dice';
 import { errMsg, getToken, money, setToken } from '@/lib/session';
 
@@ -98,6 +99,7 @@ export default function Room() {
   const shown = game.board[sel ?? cur?.position ?? 0];
   const busy = roll.isPending || buy.isPending || end.isPending || start.isPending || jail.isPending;
   const side = game.board.length / 4 + 1;
+  const classic = game.board.length === 40;
   const extraRoll = game.extraRoll && !cur?.jailed && !cur?.bankrupt;
   const leave = (method: 'pay' | 'card') => jail.mutate({ code, data: { sessionToken: token, method } }, { onSuccess: setGame, onError: e => setErr(errMsg(e)) });
   const link = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/room/${code}`;
@@ -118,13 +120,16 @@ export default function Room() {
         {rules && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="panel mb-4 grid gap-2 p-5 text-sm sm:grid-cols-2" data-testid="panel-rules">
-              <p><b>Turn.</b> Roll both dice and move that many spaces. Doubles earn another roll after resolving the space. Three consecutive doubles send you to Jail.</p>
-              <p><b>GO.</b> Everyone begins with $1,500 and earns $200 each time they pass or land on GO.</p>
+              <p><b>Turn.</b> {classic ? 'Roll both dice and move that many spaces. Doubles earn another roll after resolving the space. Three consecutive doubles send you to Jail.' : 'Roll both dice once per turn and move clockwise. This saved game keeps its original 28-space rules.'}</p>
+              <p><b>{classic ? 'GO' : 'Start'}.</b> Everyone begins with $1,500 and earns $200 each time they pass the starting space.</p>
               <p><b>Buy.</b> Land on an unowned property you can afford and you may buy it, or pass.</p>
-              <p><b>Rent.</b> Land on someone else's property and pay rent. Own a full color group and rent doubles.</p>
-              <p><b>Cards & taxes.</b> Chance and Community Chest have separate decks. Income Tax costs $200; Luxury Tax costs $100.</p>
-              <p><b>Jail.</b> Before rolling, pay $50 or use a card. Otherwise try doubles up to three turns. On the third failed attempt, pay $50 and move. Doubles that release you do not earn another roll.</p>
-              <p><b>Utilities.</b> Rent is 4× the dice total, or 10× if the owner holds both. Railroad rent doubles for each additional railroad.</p>
+              <p><b>Rent.</b> Pay the current rent shown on the deed. Mortgaged spaces collect none. A full, undeveloped and unmortgaged color group doubles base rent.</p>
+              <p><b>Development.</b> During your turn, own a full unmortgaged group to build evenly up to four houses, then a hotel. {classic ? 'The deed shows the standard building cost and rent at every level. Brown/light blue cost $50 per level; pink/orange $100; red/yellow $150; green/dark blue $200.' : 'Copper costs $50 per level; Coral/Garden $100; Violet/Sapphire $150; Rose/Gold $200. House rents are 3/5/7/9× base; a hotel pays 12×.'} Sell evenly from the highest level for half cost. A hotel sells back to four houses. Building supply is unlimited.</p>
+              <p><b>Mortgages.</b> Sell every building in a group before mortgaging a deed for half its price. Redeem for that advance plus 10%, rounded up. Mortgaged railroads/utilities do not count toward other deeds' rent.</p>
+              <p><b>Trades.</b> The active player may propose one outgoing offer with cash and/or undeveloped deeds. Only the recipient can accept or reject, even off-turn; only the proposer can cancel. Mortgages stay attached with no transfer fee, and the new owner owes redemption. Offers reserve nothing; changed assets or insufficient funds invalidate them. Bankruptcy is still automatic—manage cash before rolling.</p>
+              <p><b>Cards & taxes.</b> {classic ? 'Chance and Community Chest have separate decks. Income Tax costs $200; Luxury Tax costs $100. Repair cards charge for your houses and hotels.' : 'Lucky Break events affect cash and movement. City Levy costs $100; Luxury Tax costs $150.'}</p>
+              <p><b>{classic ? 'Jail' : 'Detention'}.</b> {classic ? 'Before rolling, pay $50 or use a card. Otherwise try doubles up to three turns. On the third failed attempt, pay $50 and move. Doubles that release you do not earn another roll.' : 'Pay $50 automatically on your next roll to leave.'}</p>
+              <p><b>Transport.</b> {classic && 'Utilities charge 4× the landing dice total, or 10× for two unmortgaged utilities. '}Railroad rent doubles for each additional unmortgaged railroad.</p>
               <p><b>Winning.</b> Bankrupt players are out. Last one standing wins.</p>
             </div>
           </motion.div>
@@ -184,7 +189,7 @@ export default function Room() {
                   <span className="font-mono text-xs text-muted-foreground">Turn {game.turnNumber}</span>
                 </div>
                 {!me && <p className="text-sm text-muted-foreground">You are watching this game.</p>}
-                 {myTurn && me?.jailed && !rolled && <div className="space-y-2">
+                 {classic && myTurn && me?.jailed && !rolled && <div className="space-y-2">
                    <p className="text-sm">In Jail · attempt {(me.jailTurns ?? 0) + 1} of 3. Roll doubles to leave, or choose below.</p>
                    <button className="btn w-full" disabled={busy || me.cash < 50} onClick={() => leave('pay')}>Pay $50 to leave Jail</button>
                    {!!me.jailCards && <button className="btn w-full" disabled={busy} onClick={() => leave('card')}>Use Get Out of Jail Free card</button>}
@@ -230,6 +235,8 @@ export default function Room() {
           </section>
 
           {shown && <div className="sm:hidden"><TileDetail space={shown} players={game.players} /></div>}
+          {myTurn && me && !me.bankrupt && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
+          {(game.phase === 'playing' || game.trades.length > 0) && <TradePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} myTurn={myTurn} />}
 
           <section className="panel p-5">
             <h2 className="display mb-2 text-xl font-black">Table talk</h2>

@@ -39,7 +39,7 @@ An unofficial fan-made online Monopoly game for 2–6 visitors to play in shared
 
 ## Product
 
-Public room discovery, create/join/watch, invite links, animated dice, property purchases, rent, complete-color bonuses, railroads, dice-based utilities, taxes, separate shuffled Chance and Community Chest decks, Jail, bankruptcy, and a winner screen. Doubles earn another roll; three consecutive doubles send the player to Jail. Jail supports doubles attempts, a $50 fine, and Get Out of Jail Free cards. Houses, hotels, mortgages, auctions, and player-to-player trades are not yet part of the main build.
+Public room discovery, create/join/watch, invite links, animated dice, property purchases, houses/hotels, upgraded rents, mortgages, consensual cash/deed trades, railroads, dice-based utilities, taxes, separate shuffled Chance and Community Chest decks, Jail, bankruptcy, and a winner screen. Doubles earn another roll; three consecutive doubles send the player to Jail. Jail supports doubles attempts, a $50 fine, and Get Out of Jail Free cards. Auctions are not included. See `docs/property-rules.md` for development, mortgage, and trade rules, including legacy-room compatibility.
 
 ## User preferences
 

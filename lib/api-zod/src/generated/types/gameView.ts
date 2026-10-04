@@ -7,6 +7,7 @@
  */
 import type { GamePlayer } from './gamePlayer';
 import type { GameSpace } from './gameSpace';
+import type { GameTrade } from './gameTrade';
 import type { GameViewPhase } from './gameViewPhase';
 
 export interface GameView {
@@ -14,6 +15,7 @@ export interface GameView {
   phase: GameViewPhase;
   players: GamePlayer[];
   board: GameSpace[];
+  trades: GameTrade[];
   /** @nullable */
   currentPlayerId: string | null;
   turnNumber: number;

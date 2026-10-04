@@ -43,6 +43,11 @@ export const CreateGameBody = zod.object({
   "playerName": zod.string().min(1).max(createGameBodyPlayerNameMax)
 })
 
+export const createGameResponseGameBoardItemBuildingLevelMin = 0;
+export const createGameResponseGameBoardItemBuildingLevelMax = 5;
+
+
+
 export const CreateGameResponse = zod.object({
   "game": zod.object({
   "code": zod.string(),
@@ -69,7 +74,29 @@ export const CreateGameResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(createGameResponseGameBoardItemBuildingLevelMin).max(createGameResponseGameBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -99,6 +126,11 @@ export const GetGameParams = zod.object({
   "code": zod.coerce.string().min(getGamePathCodeMin).max(getGamePathCodeMax)
 })
 
+export const getGameResponseBoardItemBuildingLevelMin = 0;
+export const getGameResponseBoardItemBuildingLevelMax = 5;
+
+
+
 export const GetGameResponse = zod.object({
   "code": zod.string(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),
@@ -124,7 +156,29 @@ export const GetGameResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(getGameResponseBoardItemBuildingLevelMin).max(getGameResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -161,6 +215,11 @@ export const JoinGameBody = zod.object({
   "sessionToken": zod.string().optional()
 })
 
+export const joinGameResponseGameBoardItemBuildingLevelMin = 0;
+export const joinGameResponseGameBoardItemBuildingLevelMax = 5;
+
+
+
 export const JoinGameResponse = zod.object({
   "game": zod.object({
   "code": zod.string(),
@@ -187,7 +246,29 @@ export const JoinGameResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(joinGameResponseGameBoardItemBuildingLevelMin).max(joinGameResponseGameBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -220,6 +301,11 @@ export const StartGameBody = zod.object({
   "sessionToken": zod.string().min(startGameBodySessionTokenMin)
 })
 
+export const startGameResponseBoardItemBuildingLevelMin = 0;
+export const startGameResponseBoardItemBuildingLevelMax = 5;
+
+
+
 export const StartGameResponse = zod.object({
   "code": zod.string(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),
@@ -245,7 +331,29 @@ export const StartGameResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(startGameResponseBoardItemBuildingLevelMin).max(startGameResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -276,6 +384,11 @@ export const RollDiceBody = zod.object({
   "sessionToken": zod.string().min(rollDiceBodySessionTokenMin)
 })
 
+export const rollDiceResponseBoardItemBuildingLevelMin = 0;
+export const rollDiceResponseBoardItemBuildingLevelMax = 5;
+
+
+
 export const RollDiceResponse = zod.object({
   "code": zod.string(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),
@@ -301,7 +414,29 @@ export const RollDiceResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(rollDiceResponseBoardItemBuildingLevelMin).max(rollDiceResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -332,6 +467,11 @@ export const BuyPropertyBody = zod.object({
   "sessionToken": zod.string().min(buyPropertyBodySessionTokenMin)
 })
 
+export const buyPropertyResponseBoardItemBuildingLevelMin = 0;
+export const buyPropertyResponseBoardItemBuildingLevelMax = 5;
+
+
+
 export const BuyPropertyResponse = zod.object({
   "code": zod.string(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),
@@ -357,7 +497,29 @@ export const BuyPropertyResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(buyPropertyResponseBoardItemBuildingLevelMin).max(buyPropertyResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -389,6 +551,11 @@ export const LeaveJailBody = zod.object({
   "method": zod.enum(['pay', 'card'])
 })
 
+export const leaveJailResponseBoardItemBuildingLevelMin = 0;
+export const leaveJailResponseBoardItemBuildingLevelMax = 5;
+
+
+
 export const LeaveJailResponse = zod.object({
   "code": zod.string(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),
@@ -414,7 +581,29 @@ export const LeaveJailResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(leaveJailResponseBoardItemBuildingLevelMin).max(leaveJailResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -445,6 +634,11 @@ export const EndTurnBody = zod.object({
   "sessionToken": zod.string().min(endTurnBodySessionTokenMin)
 })
 
+export const endTurnResponseBoardItemBuildingLevelMin = 0;
+export const endTurnResponseBoardItemBuildingLevelMax = 5;
+
+
+
 export const EndTurnResponse = zod.object({
   "code": zod.string(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),
@@ -470,7 +664,308 @@ export const EndTurnResponse = zod.object({
   "group": zod.string().nullable(),
   "ownerPlayerId": zod.string().nullable(),
   "color": zod.string(),
-  "description": zod.string()
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(endTurnResponseBoardItemBuildingLevelMin).max(endTurnResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Build, sell a building, mortgage, or redeem an owned property
+ */
+export const ManagePropertyParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const managePropertyBodySessionTokenMin = 16;
+
+export const managePropertyBodySpaceIdMin = 0;
+export const managePropertyBodySpaceIdMax = 39;
+
+
+
+export const ManagePropertyBody = zod.object({
+  "sessionToken": zod.string().min(managePropertyBodySessionTokenMin),
+  "spaceId": zod.number().int().min(managePropertyBodySpaceIdMin).max(managePropertyBodySpaceIdMax),
+  "action": zod.enum(['build', 'sell-building', 'mortgage', 'redeem'])
+})
+
+export const managePropertyResponseBoardItemBuildingLevelMin = 0;
+export const managePropertyResponseBoardItemBuildingLevelMax = 5;
+
+
+
+export const ManagePropertyResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(managePropertyResponseBoardItemBuildingLevelMin).max(managePropertyResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Propose a consensual cash and property exchange
+ */
+export const ProposeTradeParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const proposeTradeBodySessionTokenMin = 16;
+
+
+export const proposeTradeBodyOfferedCashMin = 0;
+export const proposeTradeBodyOfferedCashMax = 1000000;
+
+export const proposeTradeBodyRequestedCashMin = 0;
+export const proposeTradeBodyRequestedCashMax = 1000000;
+
+export const proposeTradeBodyOfferedPropertyIdsItemMin = 0;
+export const proposeTradeBodyOfferedPropertyIdsItemMax = 39;
+
+export const proposeTradeBodyOfferedPropertyIdsMax = 40;
+
+export const proposeTradeBodyRequestedPropertyIdsItemMin = 0;
+export const proposeTradeBodyRequestedPropertyIdsItemMax = 39;
+
+export const proposeTradeBodyRequestedPropertyIdsMax = 40;
+
+
+
+export const ProposeTradeBody = zod.object({
+  "sessionToken": zod.string().min(proposeTradeBodySessionTokenMin),
+  "recipientPlayerId": zod.string().min(1),
+  "offeredCash": zod.number().int().min(proposeTradeBodyOfferedCashMin).max(proposeTradeBodyOfferedCashMax),
+  "requestedCash": zod.number().int().min(proposeTradeBodyRequestedCashMin).max(proposeTradeBodyRequestedCashMax),
+  "offeredPropertyIds": zod.array(zod.number().int().min(proposeTradeBodyOfferedPropertyIdsItemMin).max(proposeTradeBodyOfferedPropertyIdsItemMax)).max(proposeTradeBodyOfferedPropertyIdsMax),
+  "requestedPropertyIds": zod.array(zod.number().int().min(proposeTradeBodyRequestedPropertyIdsItemMin).max(proposeTradeBodyRequestedPropertyIdsItemMax)).max(proposeTradeBodyRequestedPropertyIdsMax)
+})
+
+export const proposeTradeResponseBoardItemBuildingLevelMin = 0;
+export const proposeTradeResponseBoardItemBuildingLevelMax = 5;
+
+
+
+export const ProposeTradeResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(proposeTradeResponseBoardItemBuildingLevelMin).max(proposeTradeResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Accept, reject, or cancel an existing offer
+ */
+export const RespondTradeParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const respondTradeBodySessionTokenMin = 16;
+
+
+
+
+export const RespondTradeBody = zod.object({
+  "sessionToken": zod.string().min(respondTradeBodySessionTokenMin),
+  "tradeId": zod.string().min(1),
+  "action": zod.enum(['accept', 'reject', 'cancel'])
+})
+
+export const respondTradeResponseBoardItemBuildingLevelMin = 0;
+export const respondTradeResponseBoardItemBuildingLevelMax = 5;
+
+
+
+export const RespondTradeResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional()
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(respondTradeResponseBoardItemBuildingLevelMin).max(respondTradeResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),

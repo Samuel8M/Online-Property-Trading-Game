@@ -21,4 +21,15 @@ export interface GameSpace {
   ownerPlayerId: string | null;
   color: string;
   description: string;
+  /**
+     * @minimum 0
+     * @maximum 5
+     */
+  buildingLevel: number;
+  mortgaged: boolean;
+  /** @nullable */
+  buildCost: number | null;
+  /** @nullable */
+  currentRent: number | null;
+  developmentRents?: number[];
 }
