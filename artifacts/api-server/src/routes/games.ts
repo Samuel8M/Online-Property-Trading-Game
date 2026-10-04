@@ -11,7 +11,7 @@ import {
 import {
   addPlayer, createRoom, view, start, roll, buy, end, leaveJail, GameError, type StoredGame,
   normalizeGame, manageProperty, proposeTrade, respondTrade, reconcileTrades,
-   reconcileLifecycle, touchPresence, resign, resolveDebt, respondAuction,
+   reconcileLifecycle, touchPresence, resign, resolveDebt, respondAuction, ROOM_ABANDONMENT_MS, LOBBY_SEAT_GRACE_MS,
 } from "../lib/game-engine";
 import { nextRoomCheck, sweepDueRooms } from "../lib/room-timers";
 
@@ -78,7 +78,21 @@ function bodyOf<T>(schema: { safeParse: (input: unknown) => { success: boolean; 
 }
 router.use("/games", (_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
 router.get("/games", async (_req, res): Promise<void> => {
-  const result = await pool.query("SELECT state FROM game_rooms WHERE updated_at > NOW() - INTERVAL '24 hours' ORDER BY updated_at DESC LIMIT 30");
+  // Filter before LIMIT: old/paused rooms must not crowd out live tables.
+  // Discovery reads presence, not updated_at (background turns also write it).
+  const result = await pool.query(
+    `SELECT state FROM game_rooms
+     WHERE state->>'phase' IN ('lobby', 'playing')
+       AND (state->>'pausedAt') IS NULL
+       AND EXISTS (
+         SELECT 1 FROM jsonb_array_elements(state->'players') AS player
+         WHERE COALESCE((player->>'resigned')::boolean, false) = false
+           AND (player->>'lastSeenAt' IS NULL OR (player->>'lastSeenAt')::bigint > $1 -
+             CASE WHEN state->>'phase' = 'lobby' THEN $2::bigint ELSE $3::bigint END)
+       )
+     ORDER BY updated_at DESC LIMIT 30`,
+    [Date.now(), LOBBY_SEAT_GRACE_MS, ROOM_ABANDONMENT_MS],
+  );
   const rooms = result.rows.map(row => normalizeGame(row.state as StoredGame)).filter(g => g.phase !== "finished" && g.players.length).map(g => ({
     code: g.code, hostName: (g.players.find(p => p.isHost) ?? g.players[0])!.name, players: g.players.length,
     maxPlayers: 6, phase: g.phase, createdAt: g.createdAt, connectedPlayers: g.players.filter(p => p.connected).length,

@@ -447,6 +447,8 @@ components:
         extraRoll: { type: boolean }
         rollSerial: { type: integer }
         serverTime: { type: integer, description: Server epoch milliseconds at response time }
+        pausedAt: { type: ["integer", "null"], description: Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns. }
+        resumedAt: { type: ["integer", "null"], description: Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt. }
         turnDeadline: { type: ["integer", "null"], description: Persisted server turn deadline in epoch milliseconds }
         debt:
           anyOf:

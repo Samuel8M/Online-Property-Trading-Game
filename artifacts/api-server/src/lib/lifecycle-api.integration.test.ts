@@ -3,8 +3,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "@workspace/db";
-import type { GameJoinResult, GameView } from "@workspace/api-zod";
-import type { StoredGame } from "./game-engine";
+import type { GameJoinResult, GameView, GameRoomList } from "@workspace/api-zod";
+import { type StoredGame, ROOM_ABANDONMENT_MS, TURN_DURATION_MS } from "./game-engine";
 
 const enabled = process.env.GAME_API_TEST === "1";
 const base = "http://localhost:80/api/games";
@@ -120,6 +120,81 @@ test("the background sweep advances a persisted expired deadline with no browser
     assert.equal(state.currentPlayerId, state.players[1]!.id);
     assert.ok(state.turnDeadline! > Date.now());
   } finally { if (code) await pool.query("DELETE FROM game_rooms WHERE code = $1", [code]); }
+});
+
+test("discovery excludes empty tables before the limit and saved tokens restore persisted games exactly once", { skip: !enabled }, async () => {
+  const codes: string[] = [];
+  try {
+    const created = await post("", { playerName: "Recovery Host" });
+    assert.equal(created.status, 201);
+    const first = created.data as GameJoinResult;
+    const code = first.game.code;
+    codes.push(code);
+    const partner = (await post(`/${code}/players`, { playerName: "Recovery Partner" })).data as GameJoinResult;
+    assert.equal((await post(`/${code}/start`, { sessionToken: first.sessionToken })).status, 200);
+    const baseline = await get(code, first.sessionToken);
+    // A genuinely active table stays discoverable even with old updated_at.
+    await pool.query("UPDATE game_rooms SET updated_at = NOW() - INTERVAL '2 days' WHERE code = $1", [code]);
+    const cutoff = Date.now() - ROOM_ABANDONMENT_MS - 1000;
+    const original = (await pool.query("SELECT state FROM game_rooms WHERE code = $1", [code])).rows[0].state as StoredGame;
+    for (let i = 0; i < 35; i++) {
+      const stale = structuredClone(original);
+      stale.code = `${code}_empty_${i}`;
+      codes.push(stale.code);
+      for (const player of stale.players) player.lastSeenAt = cutoff;
+      // No sweeper request is needed for discovery to apply the cutoff.
+      await pool.query("INSERT INTO game_rooms (code, state, next_reconcile_at) VALUES ($1, $2, NULL)",
+        [stale.code, JSON.stringify(stale)]);
+    }
+    const listing = await fetch(base);
+    assert.equal(listing.status, 200);
+    const listed = (await listing.json() as GameRoomList).rooms;
+    assert.ok(listed.some(r => r.code === code));
+    assert.ok(!listed.some(r => r.code.includes("_empty_")));
+
+    await fixture(code, g => {
+      for (const player of g.players) player.lastSeenAt = cutoff;
+      g.turnDeadline = Date.now() - 1;
+    });
+    const watched = await get(code);
+    assert.ok(watched.pausedAt);
+    assert.equal(watched.turnDeadline, null);
+    assert.equal(watched.turnNumber, baseline.turnNumber);
+    assert.equal(watched.currentPlayerId, baseline.currentPlayerId);
+    assert.deepEqual(watched.board, baseline.board);
+    assert.equal(watched.players.length, 2);
+    assert.ok(watched.players.every(p => !p.resigned && !p.bankrupt));
+    const pausedRow = (await pool.query("SELECT state, next_reconcile_at FROM game_rooms WHERE code = $1", [code])).rows[0];
+    assert.equal(pausedRow.next_reconcile_at, null);
+    assert.equal((await get(code, "invalid-session-token")).pausedAt, watched.pausedAt);
+    assert.equal((await post(`/${code}/players`, { playerName: "Unknown", sessionToken: "invalid-session-token" })).status, 400);
+    assert.equal((await get(code)).pausedAt, watched.pausedAt);
+    const hidden = (await (await fetch(base)).json() as GameRoomList).rooms;
+    assert.ok(!hidden.some(r => r.code === code));
+
+    const responses = await Promise.all([
+      post(`/${code}/players`, { playerName: "Ignored", sessionToken: first.sessionToken }),
+      post(`/${code}/players`, { playerName: "Ignored", sessionToken: partner.sessionToken }),
+    ]);
+    for (const response of responses) {
+      assert.equal(response.status, 200);
+      const recovered = (response.data as GameJoinResult).game;
+      assert.equal(recovered.pausedAt, null);
+      assert.equal(recovered.turnNumber, baseline.turnNumber);
+      assert.deepEqual(recovered.board, baseline.board);
+      assert.equal(recovered.turnDeadline, recovered.resumedAt! + TURN_DURATION_MS);
+      assert.equal(recovered.history.filter(h => h.includes("restored the paused table")).length, 1);
+      assert.ok(recovered.myPlayerId);
+      assert.equal("tokens" in recovered, false);
+    }
+    const recovered = await get(code);
+    assert.equal(recovered.resumedAt, (responses[0].data as GameJoinResult).game.resumedAt);
+    assert.equal(recovered.turnDeadline, recovered.resumedAt! + TURN_DURATION_MS);
+    const publicAgain = (await (await fetch(base)).json() as GameRoomList).rooms;
+    assert.ok(publicAgain.some(r => r.code === code));
+  } finally {
+    if (codes.length) await pool.query("DELETE FROM game_rooms WHERE code = ANY($1::text[])", [codes]);
+  }
 });
 
 test.after(async () => { await pool.end(); });

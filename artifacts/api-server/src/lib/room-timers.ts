@@ -1,7 +1,7 @@
 import { pool } from "@workspace/db";
 import {
   type StoredGame, reconcileLifecycle, reconcileTrades, normalizeGame,
-  PRESENCE_TIMEOUT_MS, LOBBY_SEAT_GRACE_MS,
+  PRESENCE_TIMEOUT_MS, LOBBY_SEAT_GRACE_MS, ROOM_ABANDONMENT_MS,
 } from "./game-engine";
 import { logger } from "./logger";
 
@@ -12,7 +12,7 @@ export const ROOM_SWEEP_BUDGET_MS = 2000;
 // Scheduling metadata is only a projection. Reconciliation still reads the saved
 // deadlines under the authoritative room lock, never a deadline from this index.
 export function nextRoomCheck(game: StoredGame): Date | null {
-  if (game.phase === "finished") return null;
+  if (game.phase === "finished" || game.pausedAt != null) return null;
   const deadlines: number[] = [];
   for (const player of game.players) {
     if (player.resigned) continue;
@@ -20,6 +20,8 @@ export function nextRoomCheck(game: StoredGame): Date | null {
     if (game.phase === "lobby") deadlines.push(player.lastSeenAt! + LOBBY_SEAT_GRACE_MS);
   }
   if (game.phase === "playing") {
+    const contacts = game.players.filter(p => !p.resigned).map(p => p.lastSeenAt!);
+    deadlines.push((contacts.length ? Math.max(...contacts) : game.createdAt) + ROOM_ABANDONMENT_MS);
     if (game.auction) deadlines.push(game.auction.deadline);
     else if (!game.debt && game.turnDeadline != null) deadlines.push(game.turnDeadline);
   }

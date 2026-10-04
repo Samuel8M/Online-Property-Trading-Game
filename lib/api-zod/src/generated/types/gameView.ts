@@ -35,6 +35,16 @@ export interface GameView {
   /** Server epoch milliseconds at response time */
   serverTime?: number;
   /**
+     * Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.
+     * @nullable
+     */
+  pausedAt?: number | null;
+  /**
+     * Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.
+     * @nullable
+     */
+  resumedAt?: number | null;
+  /**
      * Persisted server turn deadline in epoch milliseconds
      * @nullable
      */

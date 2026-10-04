@@ -118,6 +118,8 @@ export const CreateGameResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -226,6 +228,8 @@ export const GetGameResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -335,6 +339,8 @@ export const ResignGameResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -451,6 +457,8 @@ export const JoinGameResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -562,6 +570,8 @@ export const StartGameResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -671,6 +681,8 @@ export const RollDiceResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -780,6 +792,8 @@ export const BuyPropertyResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -890,6 +904,8 @@ export const LeaveJailResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -1001,6 +1017,8 @@ export const ResolveDebtResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -1110,6 +1128,8 @@ export const EndTurnResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -1226,6 +1246,8 @@ export const RespondAuctionResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -1340,6 +1362,8 @@ export const ManagePropertyResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -1471,6 +1495,8 @@ export const ProposeTradeResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),
@@ -1583,6 +1609,8 @@ export const RespondTradeResponse = zod.object({
   "extraRoll": zod.boolean().optional(),
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
   "debt": zod.union([zod.object({
   "id": zod.string(),

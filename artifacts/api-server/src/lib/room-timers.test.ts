@@ -5,6 +5,7 @@ import { pool } from "@workspace/db";
 import {
   createRoom, addPlayer, start, end, reconcileLifecycle, normalizeGame,
   type StoredGame, TURN_DURATION_MS, PRESENCE_TIMEOUT_MS, LOBBY_SEAT_GRACE_MS,
+  ROOM_ABANDONMENT_MS, AUCTION_DURATION_MS, touchPresence,
 } from "./game-engine";
 import { nextRoomCheck, sweepDueRooms, ROOM_SWEEP_BATCH_SIZE } from "./room-timers";
 
@@ -24,7 +25,7 @@ test("next check tracks presence, lobby grace, paused debt, auction and turn dea
   for (const player of game.players) player.connected = false;
   assert.equal(nextRoomCheck(game)?.getTime(), game.turnDeadline);
   game.debt = { id: "debt", debtorPlayerId: game.players[0]!.id, creditorPlayerId: null, amount: 100 };
-  assert.equal(nextRoomCheck(game), null);
+  assert.equal(nextRoomCheck(game)?.getTime(), now + ROOM_ABANDONMENT_MS);
   game.debt = null;
   game.auction = {
     id: "unit", spaceId: 1,
@@ -217,7 +218,114 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       }
       await database.query("UPDATE game_rooms SET state = $1, next_reconcile_at = NOW() WHERE code = 'DEBT'", [JSON.stringify(paused)]);
       await sweepDueRooms(database);
-      assert.equal((await database.query("SELECT next_reconcile_at FROM game_rooms WHERE code = 'DEBT'")).rows[0].next_reconcile_at, null);
+      assert.ok((await database.query("SELECT next_reconcile_at FROM game_rooms WHERE code = 'DEBT'")).rows[0].next_reconcile_at);
+      await database.query("TRUNCATE game_rooms");
+    });
+
+    for (const decision of ["turn", "auction", "debt"] as const) {
+      await t.test(`abandoned ${decision} survives persisted pause and saved-seat recovery`, async () => {
+        const game = room("RECOVER");
+        const token = Object.keys(game.tokens)[0]!;
+        const now = Date.now();
+        game.board[1]!.ownerPlayerId = game.players[0]!.id;
+        game.board[1]!.mortgaged = true;
+        game.players[0]!.properties = [1];
+        game.players[0]!.cash = 777;
+        game.players[0]!.jailCards = 1;
+        game.heldJailCards = { [game.players[0]!.id]: ["chance"] };
+        game.extraRoll = true;
+        game.consecutiveDoubles = 1;
+        game.lastRoll = [3, 3];
+        if (decision === "auction") {
+          game.auction = {
+            id: "saved-auction", spaceId: 3, eligiblePlayerIds: game.players.map(p => p.id),
+            withdrawnPlayerIds: [], highestBid: 50, highestBidderPlayerId: game.players[1]!.id,
+            deadline: now - 1, increment: 10,
+          };
+          game.auctionTurnRemainingMs = 1000;
+        } else if (decision === "debt") {
+          game.debt = { id: "saved-debt", debtorPlayerId: game.players[0]!.id, creditorPlayerId: game.players[1]!.id, amount: 1000 };
+          game.pendingPayments = [{ debtorPlayerId: game.players[1]!.id, creditorPlayerId: null, amount: 50 }];
+          game.debtTurnRemainingMs = 1000;
+        }
+        for (const player of game.players) player.lastSeenAt = now - ROOM_ABANDONMENT_MS - 1;
+        game.turnDeadline = now - 1;
+        normalizeGame(game, now);
+        const before = structuredClone(game);
+        await insert(game);
+        await sweepDueRooms(database);
+        let checked = await saved(game.code);
+        assert.ok(checked.pausedAt);
+        assert.equal(checked.turnDeadline, null);
+        assert.deepEqual(checked.players, before.players);
+        assert.deepEqual(checked.board, before.board);
+        assert.deepEqual(checked.tokens, before.tokens);
+        assert.deepEqual(checked.heldJailCards, before.heldJailCards);
+        assert.deepEqual(checked.debt, before.debt);
+        assert.deepEqual(checked.auction, before.auction);
+        assert.deepEqual(checked.pendingPayments, before.pendingPayments);
+        assert.equal(checked.turnNumber, before.turnNumber);
+        assert.equal(checked.currentPlayerId, before.currentPlayerId);
+        assert.equal(nextRoomCheck(checked), null);
+        assert.equal((await sweepDueRooms(database)).processed, 0);
+        const paused = structuredClone(checked);
+        reconcileLifecycle(checked, now + 86_400_000);
+        touchPresence(checked, "invalid", now + 86_400_000);
+        touchPresence(checked, undefined, now + 86_400_000);
+        assert.deepEqual(checked, paused);
+
+        // Simulate process restart by loading JSON into a new row-locked action.
+        const client = await database.connect();
+        const restoredAt = Date.now();
+        try {
+          await client.query("BEGIN");
+          checked = (await client.query("SELECT state FROM game_rooms WHERE code = $1 FOR UPDATE", [game.code])).rows[0].state;
+          reconcileLifecycle(checked, restoredAt);
+          touchPresence(checked, token, restoredAt);
+          touchPresence(checked, Object.keys(checked.tokens)[1], restoredAt + 1);
+          await client.query("UPDATE game_rooms SET state = $1, next_reconcile_at = $2 WHERE code = $3",
+            [JSON.stringify(checked), nextRoomCheck(checked), game.code]);
+          await client.query("COMMIT");
+        } finally { client.release(); }
+        const restored = await saved(game.code);
+        assert.equal(restored.pausedAt, null);
+        assert.equal(restored.resumedAt, restoredAt);
+        assert.equal(restored.history.filter(h => h.includes("restored the paused table")).length, 1);
+        assert.equal(restored.turnNumber, before.turnNumber);
+        assert.deepEqual(restored.lastRoll, before.lastRoll);
+        assert.equal(restored.extraRoll, true);
+        assert.equal(restored.consecutiveDoubles, 1);
+        assert.deepEqual(restored.board, before.board);
+        assert.deepEqual(restored.debt, before.debt);
+        assert.deepEqual(restored.pendingPayments, before.pendingPayments);
+        if (decision === "auction") {
+          assert.deepEqual(restored.auction, { ...before.auction, deadline: restoredAt + AUCTION_DURATION_MS });
+          assert.equal(restored.auctionTurnRemainingMs, TURN_DURATION_MS);
+        } else if (decision === "debt") {
+          assert.equal(restored.turnDeadline, null);
+          assert.equal(restored.debtTurnRemainingMs, TURN_DURATION_MS);
+        } else assert.equal(restored.turnDeadline, restoredAt + TURN_DURATION_MS);
+        await sweepDueRooms(database);
+        assert.equal((await saved(game.code)).resumedAt, restoredAt);
+        await database.query("TRUNCATE game_rooms");
+      });
+    }
+
+    await t.test("one present seat prevents abandonment while a resigned token cannot restore it", async () => {
+      const game = room("ACTIVE");
+      const now = Date.now();
+      game.players[0]!.lastSeenAt = now - ROOM_ABANDONMENT_MS - 1;
+      game.players[1]!.lastSeenAt = now;
+      game.turnDeadline = now - 1;
+      await insert(game);
+      await sweepDueRooms(database);
+      let checked = await saved(game.code);
+      assert.equal(checked.pausedAt, null);
+      assert.equal(checked.turnNumber, 2);
+      checked.pausedAt = now;
+      checked.players[0]!.resigned = true;
+      touchPresence(checked, Object.keys(checked.tokens)[0], now);
+      assert.equal(checked.pausedAt, now);
     });
   } finally {
     await database.end();

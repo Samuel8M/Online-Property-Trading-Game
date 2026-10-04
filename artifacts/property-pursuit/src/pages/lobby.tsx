@@ -87,6 +87,7 @@ export default function Lobby() {
           {error && <p className="rounded-lg bg-primary/10 p-3 text-sm font-medium text-primary" data-testid="text-error">{error}</p>}
           <p className="text-xs text-muted-foreground">Enter a code without a name to simply watch a game in progress.</p>
           <p className="text-xs text-muted-foreground">90-second turns keep tables moving. Return using the same browser to recover your seat. Waiting-room seats are saved for five minutes away; running-game seats stay saved unless you resign.</p>
+          <p className="text-xs text-muted-foreground">Running tables pause and disappear from this list after five minutes with no players present. Enter your room code in the same browser to restore your saved seat with fresh deadlines. Watching alone does not resume a paused table.</p>
         </div>
 
         <div className="panel p-6">

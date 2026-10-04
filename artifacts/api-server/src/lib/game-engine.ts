@@ -25,6 +25,7 @@ export const AUCTION_DURATION_MS = 30_000;
 export const AUCTION_INCREMENT = 10;
 export const PRESENCE_TIMEOUT_MS = 45_000;
 export const LOBBY_SEAT_GRACE_MS = 300_000;
+export const ROOM_ABANDONMENT_MS = 300_000;
 const buildingCosts: Record<string, number> = {
   Copper: 50, Coral: 100, Garden: 100, Violet: 150, Sapphire: 150, Rose: 200, Gold: 200,
   Brown: 50, "Light blue": 50, Pink: 100, Orange: 100, Red: 150, Yellow: 150, Green: 200, "Dark blue": 200,
@@ -41,9 +42,11 @@ export function normalizeGame(game: StoredGame, now = Date.now()): StoredGame {
   game.trades ??= [];
   game.debt ??= null;
   game.auction ??= null;
+  game.pausedAt ??= null;
+  game.resumedAt ??= null;
   game.turnDurationMs = TURN_DURATION_MS;
   game.turnDeadline ??= game.phase === "playing" ? now + TURN_DURATION_MS : null;
-  if (game.phase !== "playing" || game.debt || game.auction) game.turnDeadline = null;
+  if (game.phase !== "playing" || game.debt || game.auction || game.pausedAt !== null) game.turnDeadline = null;
   for (const player of game.players) {
     // Old rooms get a full reconnect grace period, not an immediate timeout.
     player.lastSeenAt ??= now;
@@ -567,6 +570,15 @@ export function reconcileLifecycle(game: StoredGame, now = Date.now()) {
     return;
   }
   if (game.phase !== "playing") return;
+  if (game.pausedAt !== null) return;
+  const contacts = game.players.filter(p => !p.resigned).map(p => p.lastSeenAt!);
+  const lastContact = contacts.length ? Math.max(...contacts) : game.createdAt;
+  if (now >= lastContact + ROOM_ABANDONMENT_MS) {
+    game.pausedAt = now;
+    game.turnDeadline = null;
+    addHistory(game, "Table paused after five minutes with no players present. Seats and assets are saved. Return with your room code and saved browser session to resume with fresh deadlines.");
+    return;
+  }
   if (game.auction) {
     if (now >= game.auction.deadline) closeAuction(game, now);
     return;
@@ -591,10 +603,21 @@ export function touchPresence(game: StoredGame, token: string | undefined, now =
   const player = game.players.find(p => p.id === (token ? game.tokens[token] : undefined));
   if (!player || player.resigned) return;
   const wasAway = !player.connected;
+  const resuming = game.phase === "playing" && game.pausedAt != null;
   // Polling every second must not write every second.
   if (wasAway || now - (player.lastSeenAt ?? 0) >= 10_000) player.lastSeenAt = now;
   player.connected = true;
-  if (wasAway) addHistory(game, `${player.name} reconnected. Their seat and assets are preserved.`);
+  if (resuming) {
+    game.pausedAt = null;
+    game.resumedAt = now;
+    if (game.debt) {
+      game.debtTurnRemainingMs = TURN_DURATION_MS;
+    } else if (game.auction) {
+      game.auction.deadline = now + AUCTION_DURATION_MS;
+      game.auctionTurnRemainingMs = TURN_DURATION_MS;
+    } else game.turnDeadline = now + TURN_DURATION_MS;
+    addHistory(game, `${player.name} restored the paused table. All seats and assets are preserved. ${game.debt ? "The outstanding debt still needs resolution; the turn timer stays paused." : game.auction ? "The saved auction has a fresh 30-second deadline." : "The current player has a fresh 90-second turn."}`);
+  } else if (wasAway) addHistory(game, `${player.name} reconnected. Their seat and assets are preserved.`);
   if (game.phase === "lobby" && !game.players.some(p => p.isHost && p.connected)) {
     for (const p of game.players) p.isHost = p.id === player.id;
     addHistory(game, `${player.name} is now the room host.`);

@@ -125,6 +125,8 @@ export default function Room() {
         </span>
       </header>
       {disconnected && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="connection-warning">Connection lost — reconnecting automatically. Your seat is saved, but the server timer keeps running. <button className="underline" onClick={() => q.refetch()}>Retry now</button></div>}
+      {game.pausedAt != null && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="room-paused">This table is paused because all players were away for five minutes. Seats, assets, and unfinished decisions are saved. A player must return with the room code and their saved browser session to resume. Watching does not restart the timers.</div>}
+      {game.pausedAt == null && game.resumedAt != null && clock.now - game.resumedAt < 90_000 && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="room-restored">This saved table has resumed. All seats and assets are preserved. Recovery grants a fresh 90-second turn or 30-second auction; outstanding debt must still be resolved before the turn timer runs.</div>}
 
       <AnimatePresence>
         {rules && (
@@ -142,7 +144,7 @@ export default function Room() {
               <p><b>{classic ? 'Jail' : 'Detention'}.</b> {classic ? 'Before rolling, pay $50 or use a card. Otherwise try doubles up to three turns. On the third failed attempt, pay $50 and move. Doubles that release you do not earn another roll.' : 'Pay $50 automatically on your next roll to leave.'}</p>
               <p><b>Transport.</b> {classic && 'Utilities charge 4× the landing dice total, or 10× for two unmortgaged utilities. '}Railroad rent doubles for each additional unmortgaged railroad.</p>
               <p><b>Winning.</b> Bankrupt players are out. Last one standing wins.</p>
-              <p><b>Timers & reconnecting.</b> Each turn has 90 seconds, including doubles. The server skips unfinished actions at expiry, without rolling for you. Away means no contact for 45 seconds. Return in the same browser to reconnect. Running-game seats stay saved; waiting-room seats are freed after five minutes away, and an absent host is replaced. Resignation is permanent.</p>
+              <p><b>Timers & reconnecting.</b> Each turn has 90 seconds, including doubles. The server skips unfinished actions at expiry, without rolling for you. Away means no contact for 45 seconds. Return in the same browser to reconnect. Running tables pause and leave public discovery after five minutes with no player contact. A saved player session restores them with a fresh turn or auction deadline; spectators cannot resume them. Running-game seats stay saved; waiting-room seats are freed after five minutes away, and an absent host is replaced. Resignation is permanent.</p>
             </div>
           </motion.div>
         )}
