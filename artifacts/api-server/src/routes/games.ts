@@ -5,13 +5,13 @@ import {
   CreateGameBody, CreateGameResponse, GetGameParams, GetGameResponse,
   JoinGameBody, JoinGameResponse, StartGameBody, RollDiceBody, BuyPropertyBody,
   EndTurnBody, ListGamesResponse, LeaveJailBody, ResignGameBody,
-  ManagePropertyBody, ProposeTradeBody, RespondTradeBody, ResolveDebtBody,
-  type PropertyManagementInput, type TradeProposalInput, type TradeResponseInput, type DebtResolutionInput,
+   ManagePropertyBody, ProposeTradeBody, RespondTradeBody, ResolveDebtBody, RespondAuctionBody,
+   type PropertyManagementInput, type TradeProposalInput, type TradeResponseInput, type DebtResolutionInput, type AuctionResponseInput,
 } from "@workspace/api-zod";
 import {
   addPlayer, createRoom, view, start, roll, buy, end, leaveJail, GameError, type StoredGame,
   normalizeGame, manageProperty, proposeTrade, respondTrade, reconcileTrades,
-  reconcileLifecycle, touchPresence, resign, resolveDebt,
+   reconcileLifecycle, touchPresence, resign, resolveDebt, respondAuction,
 } from "../lib/game-engine";
 import { logger } from "../lib/logger";
 
@@ -131,6 +131,11 @@ for (const [path, schema, action] of [
     res.json(GetGameResponse.parse(view(game, sessionToken)));
   });
 }
+router.post("/games/:code/auction", async (req, res): Promise<void> => {
+  const input = bodyOf<AuctionResponseInput>(RespondAuctionBody, req.body);
+  const game = await mutate(codeOf(req), g => respondAuction(g, input), input.sessionToken);
+  res.json(GetGameResponse.parse(view(game, input.sessionToken)));
+});
 router.post("/games/:code/debt", async (req, res): Promise<void> => {
   const input = bodyOf<DebtResolutionInput>(ResolveDebtBody, req.body);
   const game = await mutate(codeOf(req), g => resolveDebt(g, input), input.sessionToken);

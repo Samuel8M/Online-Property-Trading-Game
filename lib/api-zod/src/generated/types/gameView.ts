@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GameAuction } from './gameAuction';
 import type { GameDebt } from './gameDebt';
 import type { GamePlayer } from './gamePlayer';
 import type { GameSpace } from './gameSpace';
@@ -39,5 +40,6 @@ export interface GameView {
      */
   turnDeadline?: number | null;
   debt?: GameDebt | null;
+  auction?: GameAuction | null;
   turnDurationMs?: number;
 }

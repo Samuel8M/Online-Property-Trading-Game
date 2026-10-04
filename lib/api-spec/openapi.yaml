@@ -264,6 +264,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameView"
+  /games/{code}/auction:
+    post:
+      operationId: respondAuction
+      tags: [games]
+      summary: Bid in or withdraw from the current property auction
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuctionResponseInput"
+      responses:
+        "200":
+          description: Updated auction or completed sale
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "400":
+          description: Stale auction, withdrawn player, or invalid bid
+        "403":
+          description: Invalid player session
   /games/{code}/property:
     post:
       operationId: manageProperty
@@ -425,7 +452,35 @@ components:
           anyOf:
             - $ref: "#/components/schemas/GameDebt"
             - { type: "null" }
+        auction:
+          anyOf:
+            - $ref: "#/components/schemas/GameAuction"
+            - { type: "null" }
         turnDurationMs: { type: integer }
+    GameAuction:
+      type: object
+      required: [id, spaceId, eligiblePlayerIds, withdrawnPlayerIds, highestBid, highestBidderPlayerId, deadline, increment]
+      properties:
+        id: { type: string }
+        spaceId: { type: integer }
+        eligiblePlayerIds:
+          type: array
+          items: { type: string }
+        withdrawnPlayerIds:
+          type: array
+          items: { type: string }
+        highestBid: { type: integer, minimum: 0 }
+        highestBidderPlayerId: { type: ["string", "null"] }
+        deadline: { type: integer, description: Server epoch milliseconds; reset to 30 seconds after each bid }
+        increment: { type: integer, minimum: 1 }
+    AuctionResponseInput:
+      type: object
+      required: [sessionToken, auctionId, action]
+      properties:
+        sessionToken: { type: string, minLength: 16 }
+        auctionId: { type: string, minLength: 1 }
+        action: { type: string, enum: [bid, withdraw] }
+        amount: { type: integer, minimum: 10, maximum: 1000000 }
     GamePlayer:
       type: object
       required: [id, name, color, cash, position, jailed, bankrupt, properties, isHost]

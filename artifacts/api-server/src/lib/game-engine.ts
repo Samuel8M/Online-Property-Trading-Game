@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import type {
   GameView, GamePlayer, GameSpace, GameTrade, TradeProperty,
-  PropertyManagementInput, TradeProposalInput, TradeResponseInput, DebtResolutionInput,
+   PropertyManagementInput, TradeProposalInput, TradeResponseInput, DebtResolutionInput, AuctionResponseInput,
 } from "@workspace/api-zod";
 import { classicBoard, chanceCards, chestCards, type ClassicCard } from "./classic-board";
 
@@ -13,6 +13,7 @@ export type StoredGame = Omit<GameView, "myPlayerId" | "serverTime"> & {
   pendingPayments?: { debtorPlayerId: string; creditorPlayerId: string | null; amount: number }[];
   debtTurnRemainingMs?: number;
   debtContinuation?: { playerId: string; steps: number };
+  auctionTurnRemainingMs?: number;
 };
 export class GameError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -20,6 +21,8 @@ export class GameError extends Error {
 
 const colors = ["#f97316", "#27b7b0", "#9b7cf4", "#e65b84", "#f0bb40", "#5482ee"];
 export const TURN_DURATION_MS = 90_000;
+export const AUCTION_DURATION_MS = 30_000;
+export const AUCTION_INCREMENT = 10;
 export const PRESENCE_TIMEOUT_MS = 45_000;
 export const LOBBY_SEAT_GRACE_MS = 300_000;
 const buildingCosts: Record<string, number> = {
@@ -37,9 +40,10 @@ export function addHistory(game: StoredGame, text: string) {
 export function normalizeGame(game: StoredGame, now = Date.now()): StoredGame {
   game.trades ??= [];
   game.debt ??= null;
+  game.auction ??= null;
   game.turnDurationMs = TURN_DURATION_MS;
   game.turnDeadline ??= game.phase === "playing" ? now + TURN_DURATION_MS : null;
-  if (game.phase !== "playing" || game.debt) game.turnDeadline = null;
+  if (game.phase !== "playing" || game.debt || game.auction) game.turnDeadline = null;
   for (const player of game.players) {
     // Old rooms get a full reconnect grace period, not an immediate timeout.
     player.lastSeenAt ??= now;
@@ -107,7 +111,7 @@ export function createRoom(code: string, name: string): { game: StoredGame; toke
 }
 export function view(game: StoredGame, token?: string, now = Date.now()): GameView {
   normalizeGame(game, now);
-  const { tokens, chanceDeck, chestDeck, heldJailCards, pendingPayments, debtTurnRemainingMs, debtContinuation, ...publicGame } = game;
+  const { tokens, chanceDeck, chestDeck, heldJailCards, pendingPayments, debtTurnRemainingMs, debtContinuation, auctionTurnRemainingMs, ...publicGame } = game;
   return { ...publicGame, serverTime: now, myPlayerId: token ? tokens[token] ?? null : null };
 }
 function playerFor(game: StoredGame, token: string): GamePlayer {
@@ -116,6 +120,7 @@ function playerFor(game: StoredGame, token: string): GamePlayer {
   return player;
 }
 function activePlayer(game: StoredGame, token: string): GamePlayer {
+  if (game.auction) throw new GameError("Finish the property auction first.");
   if (game.debt) throw new GameError("Resolve the outstanding debt first.");
   const player = playerFor(game, token);
   if (game.phase !== "playing") throw new GameError("The game is not in progress.");
@@ -123,6 +128,7 @@ function activePlayer(game: StoredGame, token: string): GamePlayer {
   return player;
 }
 function livePlayer(game: StoredGame, token: string): GamePlayer {
+  if (game.auction) throw new GameError("Trades are paused during the property auction.");
   if (game.debt) throw new GameError("Trades are paused while a debt is outstanding.");
   const player = playerFor(game, token);
   if (game.phase !== "playing") throw new GameError("The game is not in progress.");
@@ -355,7 +361,6 @@ export function start(game: StoredGame, token: string) {
   if (!player.isHost) throw new GameError("Only the room host can start the game.", 403);
   if (game.phase !== "lobby") throw new GameError("This game has already started.");
   if (game.players.length < 2) throw new GameError("Invite at least one more player to start.");
-  if (game.board.length !== 40) game.board = makeBoard();
   game.phase = "playing";
   game.currentPlayerId = game.players[0]!.id;
   game.turnDeadline = Date.now() + TURN_DURATION_MS;
@@ -451,13 +456,81 @@ export function buy(game: StoredGame, token: string) {
 export function end(game: StoredGame, token: string) {
   const player = activePlayer(game, token);
   if (!game.lastRoll.length) throw new GameError("Roll the dice before ending your turn.");
+  const tile = game.board[player.position]!;
+  if (!player.jailed && tile.price !== null && !tile.ownerPlayerId) {
+    const now = Date.now();
+    game.auctionTurnRemainingMs = Math.max(1, (game.turnDeadline ?? now + TURN_DURATION_MS) - now);
+    game.auction = {
+      id: randomUUID(), spaceId: tile.id,
+      eligiblePlayerIds: game.players.filter(p => !p.bankrupt && !p.resigned).map(p => p.id),
+      withdrawnPlayerIds: [], highestBid: 0, highestBidderPlayerId: null,
+      deadline: now + AUCTION_DURATION_MS, increment: AUCTION_INCREMENT,
+    };
+    game.turnDeadline = null;
+    addHistory(game, `${player.name} declined ${tile.name}. Auction open: bid at least $10 or withdraw. All live players may participate.`);
+    return;
+  }
+  finishLanding(game, player);
+}
+
+function finishLanding(game: StoredGame, player: GamePlayer, now = Date.now()) {
   if (game.extraRoll && !player.jailed && !player.bankrupt) {
     game.extraRoll = false;
     game.lastRoll = [];
     addHistory(game, `Doubles! ${player.name} rolls again (${game.consecutiveDoubles} consecutive doubles).`);
     return;
   }
-  advanceTurn(game);
+  advanceTurn(game, now);
+}
+
+function closeAuction(game: StoredGame, now: number) {
+  const auction = game.auction!;
+  const tile = game.board.find(s => s.id === auction.spaceId)!;
+  const winner = game.players.find(p => p.id === auction.highestBidderPlayerId);
+  if (winner) {
+    // Cash cannot change during an auction. Recheck before the atomic award.
+    if (winner.bankrupt || winner.resigned || winner.cash < auction.highestBid || tile.ownerPlayerId) {
+      throw new GameError("The auction winner or property is no longer eligible.");
+    }
+    winner.cash -= auction.highestBid;
+    winner.properties.push(tile.id);
+    tile.ownerPlayerId = winner.id;
+    addHistory(game, `${winner.name} won ${tile.name} at auction for $${auction.highestBid}.`);
+  } else addHistory(game, `No bids for ${tile.name}. It remains with the bank.`);
+  game.auction = null;
+  game.turnDeadline = now + (game.auctionTurnRemainingMs ?? TURN_DURATION_MS);
+  delete game.auctionTurnRemainingMs;
+  finishLanding(game, game.players.find(p => p.id === game.currentPlayerId)!, now);
+}
+
+export function respondAuction(game: StoredGame, input: AuctionResponseInput, now = Date.now()) {
+  const player = playerFor(game, input.sessionToken);
+  const auction = game.auction;
+  if (game.phase !== "playing" || game.debt || !auction || auction.id !== input.auctionId || now >= auction.deadline) {
+    throw new GameError("This auction is no longer open.");
+  }
+  if (player.bankrupt || player.resigned || !auction.eligiblePlayerIds.includes(player.id)) {
+    throw new GameError("Only live seated players may participate.", 403);
+  }
+  if (auction.withdrawnPlayerIds.includes(player.id)) throw new GameError("You already withdrew from this auction.");
+  if (auction.highestBidderPlayerId === player.id) throw new GameError("Your leading bid is binding. Wait for another bid or the auction to close.");
+  if (input.action === "bid") {
+    const amount = input.amount;
+    if (!Number.isSafeInteger(amount) || amount! < auction.highestBid + auction.increment || amount! > 1_000_000) {
+      throw new GameError(`Bid whole dollars, at least $${auction.highestBid + auction.increment} and no more than $1,000,000.`);
+    }
+    if (player.cash < amount!) throw new GameError("You cannot bid more cash than you have.");
+    auction.highestBid = amount!;
+    auction.highestBidderPlayerId = player.id;
+    auction.deadline = now + AUCTION_DURATION_MS;
+    addHistory(game, `${player.name} bid $${amount} for ${game.board.find(s => s.id === auction.spaceId)!.name}.`);
+  } else if (input.action === "withdraw") {
+    auction.withdrawnPlayerIds.push(player.id);
+    addHistory(game, `${player.name} withdrew from the auction.`);
+  } else throw new GameError("Unknown auction action.");
+  if (auction.eligiblePlayerIds.every(id => auction.withdrawnPlayerIds.includes(id) || id === auction.highestBidderPlayerId)) {
+    closeAuction(game, now);
+  }
 }
 
 function advanceTurn(game: StoredGame, now = Date.now()) {
@@ -494,6 +567,10 @@ export function reconcileLifecycle(game: StoredGame, now = Date.now()) {
     return;
   }
   if (game.phase !== "playing") return;
+  if (game.auction) {
+    if (now >= game.auction.deadline) closeAuction(game, now);
+    return;
+  }
   if (game.debt) return;
   const current = game.players.find(p => p.id === game.currentPlayerId);
   if (current?.bankrupt) {
@@ -525,6 +602,7 @@ export function touchPresence(game: StoredGame, token: string | undefined, now =
 }
 
 export function resign(game: StoredGame, token: string) {
+  if (game.auction) throw new GameError("Finish the property auction before leaving a seat.");
   if (game.debt) throw new GameError("Resolve the outstanding debt before leaving a seat.");
   const player = playerFor(game, token);
   if (player.resigned) return;

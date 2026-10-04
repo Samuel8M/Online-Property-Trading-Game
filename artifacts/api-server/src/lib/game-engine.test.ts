@@ -62,7 +62,7 @@ test("classic board and doubles survive property-development integration", () =>
   p.position = 8; roll(game, token, [1, 1]); end(game, token);
   assert.equal(game.currentPlayerId, p.id);
   assert.equal(game.extraRoll, false);
-  roll(game, token, [1, 2]); end(game, token);
+  roll(game, token, [1, 2]); buy(game, token); end(game, token);
   assert.equal(game.currentPlayerId, q.id);
   assert.equal(view(game, other).myPlayerId, q.id);
   assert.equal("chanceDeck" in view(game), false);

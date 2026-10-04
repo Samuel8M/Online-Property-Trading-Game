@@ -48,6 +48,9 @@ export const createGameResponseGameBoardItemBuildingLevelMin = 0;
 export const createGameResponseGameBoardItemBuildingLevelMax = 5;
 
 
+export const createGameResponseGameAuctionOneHighestBidMin = 0;
+
+
 
 
 export const CreateGameResponse = zod.object({
@@ -122,6 +125,16 @@ export const CreateGameResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(createGameResponseGameAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
@@ -142,6 +155,9 @@ export const GetGameParams = zod.object({
 
 export const getGameResponseBoardItemBuildingLevelMin = 0;
 export const getGameResponseBoardItemBuildingLevelMax = 5;
+
+
+export const getGameResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -217,6 +233,16 @@ export const GetGameResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(getGameResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -238,6 +264,9 @@ export const ResignGameBody = zod.object({
 
 export const resignGameResponseBoardItemBuildingLevelMin = 0;
 export const resignGameResponseBoardItemBuildingLevelMax = 5;
+
+
+export const resignGameResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -313,6 +342,16 @@ export const ResignGameResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(resignGameResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -340,6 +379,9 @@ export const JoinGameBody = zod.object({
 
 export const joinGameResponseGameBoardItemBuildingLevelMin = 0;
 export const joinGameResponseGameBoardItemBuildingLevelMax = 5;
+
+
+export const joinGameResponseGameAuctionOneHighestBidMin = 0;
 
 
 
@@ -416,6 +458,16 @@ export const JoinGameResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(joinGameResponseGameAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
@@ -439,6 +491,9 @@ export const StartGameBody = zod.object({
 
 export const startGameResponseBoardItemBuildingLevelMin = 0;
 export const startGameResponseBoardItemBuildingLevelMax = 5;
+
+
+export const startGameResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -514,6 +569,16 @@ export const StartGameResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(startGameResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -535,6 +600,9 @@ export const RollDiceBody = zod.object({
 
 export const rollDiceResponseBoardItemBuildingLevelMin = 0;
 export const rollDiceResponseBoardItemBuildingLevelMax = 5;
+
+
+export const rollDiceResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -610,6 +678,16 @@ export const RollDiceResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(rollDiceResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -631,6 +709,9 @@ export const BuyPropertyBody = zod.object({
 
 export const buyPropertyResponseBoardItemBuildingLevelMin = 0;
 export const buyPropertyResponseBoardItemBuildingLevelMax = 5;
+
+
+export const buyPropertyResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -706,6 +787,16 @@ export const BuyPropertyResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(buyPropertyResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -728,6 +819,9 @@ export const LeaveJailBody = zod.object({
 
 export const leaveJailResponseBoardItemBuildingLevelMin = 0;
 export const leaveJailResponseBoardItemBuildingLevelMax = 5;
+
+
+export const leaveJailResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -803,6 +897,16 @@ export const LeaveJailResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(leaveJailResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -826,6 +930,9 @@ export const ResolveDebtBody = zod.object({
 
 export const resolveDebtResponseBoardItemBuildingLevelMin = 0;
 export const resolveDebtResponseBoardItemBuildingLevelMax = 5;
+
+
+export const resolveDebtResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -901,6 +1008,16 @@ export const ResolveDebtResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(resolveDebtResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -922,6 +1039,9 @@ export const EndTurnBody = zod.object({
 
 export const endTurnResponseBoardItemBuildingLevelMin = 0;
 export const endTurnResponseBoardItemBuildingLevelMax = 5;
+
+
+export const endTurnResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -997,6 +1117,132 @@ export const EndTurnResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(endTurnResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
+  "turnDurationMs": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Bid in or withdraw from the current property auction
+ */
+export const RespondAuctionParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const respondAuctionBodySessionTokenMin = 16;
+
+
+export const respondAuctionBodyAmountMin = 10;
+export const respondAuctionBodyAmountMax = 1000000;
+
+
+
+export const RespondAuctionBody = zod.object({
+  "sessionToken": zod.string().min(respondAuctionBodySessionTokenMin),
+  "auctionId": zod.string().min(1),
+  "action": zod.enum(['bid', 'withdraw']),
+  "amount": zod.number().int().min(respondAuctionBodyAmountMin).max(respondAuctionBodyAmountMax).optional()
+})
+
+export const respondAuctionResponseBoardItemBuildingLevelMin = 0;
+export const respondAuctionResponseBoardItemBuildingLevelMax = 5;
+
+
+export const respondAuctionResponseAuctionOneHighestBidMin = 0;
+
+
+
+
+export const RespondAuctionResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(respondAuctionResponseBoardItemBuildingLevelMin).max(respondAuctionResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(respondAuctionResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -1023,6 +1269,9 @@ export const ManagePropertyBody = zod.object({
 
 export const managePropertyResponseBoardItemBuildingLevelMin = 0;
 export const managePropertyResponseBoardItemBuildingLevelMax = 5;
+
+
+export const managePropertyResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -1098,6 +1347,16 @@ export const ManagePropertyResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(managePropertyResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -1141,6 +1400,9 @@ export const ProposeTradeBody = zod.object({
 
 export const proposeTradeResponseBoardItemBuildingLevelMin = 0;
 export const proposeTradeResponseBoardItemBuildingLevelMax = 5;
+
+
+export const proposeTradeResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -1216,6 +1478,16 @@ export const ProposeTradeResponse = zod.object({
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
 }),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(proposeTradeResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -1240,6 +1512,9 @@ export const RespondTradeBody = zod.object({
 
 export const respondTradeResponseBoardItemBuildingLevelMin = 0;
 export const respondTradeResponseBoardItemBuildingLevelMax = 5;
+
+
+export const respondTradeResponseAuctionOneHighestBidMin = 0;
 
 
 
@@ -1314,6 +1589,16 @@ export const RespondTradeResponse = zod.object({
   "debtorPlayerId": zod.string(),
   "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
   "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(respondTradeResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
 }),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })

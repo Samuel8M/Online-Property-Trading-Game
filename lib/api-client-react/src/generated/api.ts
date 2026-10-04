@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuctionResponseInput,
   DebtResolutionInput,
   GameActionInput,
   GameCreateInput,
@@ -1091,6 +1092,95 @@ export const useEndTurn = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getEndTurnMutationOptions(options));
+    }
+
+export const getRespondAuctionUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}/auction`
+}
+
+/**
+ * @summary Bid in or withdraw from the current property auction
+ */
+export const respondAuction = async (code: string,
+    auctionResponseInput: AuctionResponseInput, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameView>(getRespondAuctionUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(auctionResponseInput)
+  }
+);}
+
+
+
+
+
+export const getRespondAuctionMutationKey = () => ['respondAuction'] as const;
+
+export const getRespondAuctionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondAuction>>, TError,RespondAuctionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondAuction>>, TError,RespondAuctionMutationVariables, TContext> => {
+
+const mutationKey = getRespondAuctionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondAuction>>, RespondAuctionMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  respondAuction(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondAuctionMutationResult = NonNullable<Awaited<ReturnType<typeof respondAuction>>>
+    export type RespondAuctionMutationBody = BodyType<AuctionResponseInput>
+    export type RespondAuctionMutationError = ErrorType<void>
+    export type RespondAuctionMutationVariables = {code: string;data: BodyType<AuctionResponseInput>}
+
+    /**
+ * @summary Bid in or withdraw from the current property auction
+ */
+export const useRespondAuction = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondAuction>>, TError,RespondAuctionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondAuction>>,
+        TError,
+        RespondAuctionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRespondAuctionMutationOptions(options));
     }
 
 export const getManagePropertyUrl = (code: string,) => {

@@ -145,6 +145,21 @@ export interface GameDebt {
   amount: number;
 }
 
+export interface GameAuction {
+  id: string;
+  spaceId: number;
+  eligiblePlayerIds: string[];
+  withdrawnPlayerIds: string[];
+  /** @minimum 0 */
+  highestBid: number;
+  /** @nullable */
+  highestBidderPlayerId: string | null;
+  /** Server epoch milliseconds; reset to 30 seconds after each bid */
+  deadline: number;
+  /** @minimum 1 */
+  increment: number;
+}
+
 export interface GameView {
   code: string;
   phase: GameViewPhase;
@@ -173,12 +188,34 @@ export interface GameView {
      */
   turnDeadline?: number | null;
   debt?: GameDebt | null;
+  auction?: GameAuction | null;
   turnDurationMs?: number;
 }
 
 export interface GameJoinResult {
   game: GameView;
   sessionToken: string;
+}
+
+export type AuctionResponseInputAction = typeof AuctionResponseInputAction[keyof typeof AuctionResponseInputAction];
+
+
+export const AuctionResponseInputAction = {
+  bid: 'bid',
+  withdraw: 'withdraw',
+} as const;
+
+export interface AuctionResponseInput {
+  /** @minLength 16 */
+  sessionToken: string;
+  /** @minLength 1 */
+  auctionId: string;
+  action: AuctionResponseInputAction;
+  /**
+     * @minimum 10
+     * @maximum 1000000
+     */
+  amount?: number;
 }
 
 export type PropertyManagementInputAction = typeof PropertyManagementInputAction[keyof typeof PropertyManagementInputAction];

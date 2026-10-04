@@ -4,7 +4,41 @@ Development, mortgages, and trades work on both the original saved 28-space game
 and the main project's new 40-space Monopoly board. The main project's branding,
 classic board, doubles, Jail choices, and separate card decks remain intact.
 Existing in-progress 28-space games keep their deeds, positions and anonymous seats.
-Older waiting rooms adopt the classic board on start, as in the main project.
+Saved waiting rooms also retain their original board when started.
+
+## Voluntary property auctions
+
+- After rolling onto any unowned purchasable deed (colored property, railroad or
+  utility), the active player may buy at list price or explicitly decline and open
+  an auction. Declining works even when list price is unaffordable. A normal turn
+  timeout does not open an auction; it still skips the turn.
+- All live, non-resigned seated players may bid, including the decliner, players
+  in Jail, and away players who reconnect. Spectators and bankrupt players cannot.
+  Nobody is required to bid. No separate room vote or host approval is needed.
+- The opening bid is at least $10. Each later bid must be at least $10 above the
+  current highest bid. Amounts are whole dollars, at most $1,000,000 and no more
+  than the bidder's current cash. Borrowing and mortgaging during bidding are not
+  allowed. Only the winner pays; all money goes to the bank.
+- Withdrawal is permanent for that auction. A leading bidder cannot withdraw or
+  raise their own bid. Once outbid, they may bid again or withdraw.
+- The auction has a persisted 30-second deadline, restarted by each accepted bid
+  (not by withdrawals). It closes immediately when every player other than the
+  leader has withdrawn, or when the deadline expires. With no leader, all players
+  must withdraw for early closure; otherwise timeout closes it unsold. Away seats
+  do not block timeout. The highest bidder pays exactly once and gets the deed;
+  with no bids it remains unowned. Outcome and bids appear in table history.
+- The normal turn timer pauses. Rolling, buying, ending a turn, managing property,
+  trading and resignation are blocked during the auction. Pending trades retain
+  their usual validation and may become invalid after the winner pays.
+- Closure completes the declined landing and advances to the next live player
+  with a fresh 90 seconds. On the classic board, an earned doubles roll instead
+  resumes for the original player with their saved time; an unsold property does
+  not reopen an auction on that resolved landing.
+- Auction ID, bids, eligible players, withdrawals, deadline and remaining turn
+  time are stored in the room JSON. Anonymous session tokens authorize actions,
+  and auction IDs reject stale/repeated requests. Room row locks serialize bids
+  and awards with timer expiry. One-second room polling refreshes all sessions;
+  reloads restore the same auction, and the server closes it without any browser.
 
 ## Development
 

@@ -30,6 +30,7 @@ test("non-doubles end the bonus sequence and pass the turn", () => {
   const { game, token, alice, bob } = setup();
   alice.position = 8; roll(game, token, [1, 1]); end(game, token); roll(game, token, [1, 2]);
   assert.equal(game.extraRoll, false); assert.equal(game.consecutiveDoubles, 0);
+  buy(game, token);
   end(game, token); assert.equal(game.currentPlayerId, bob.id);
 });
 test("Jail doubles release and move the player but do not earn another roll", () => {
@@ -37,6 +38,7 @@ test("Jail doubles release and move the player but do not earn another roll", ()
   alice.position = 10; alice.jailed = true; roll(game, token, [2, 2]);
   assert.equal(alice.jailed, false); assert.equal(alice.position, 14);
   assert.equal(alice.cash, 1500); assert.equal(game.extraRoll, false);
+  buy(game, token);
   end(game, token); assert.equal(game.currentPlayerId, bob.id);
 });
 test("Jail requires up to three attempts, then a $50 fine and movement", () => {

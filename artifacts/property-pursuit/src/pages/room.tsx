@@ -16,6 +16,7 @@ import type { GameView } from '@workspace/api-client-react';
 import { Tile, TileDetail } from '@/components/board';
 import { ManagePanel, TradePanel } from '@/components/manage';
 import { DebtPanel } from '@/components/debt';
+import { AuctionPanel } from '@/components/auction';
 import { DicePair } from '@/components/dice';
 import { ExitSeat, TurnTimer, useRoomClock } from '@/components/room-lifecycle';
 import { errMsg, getToken, money, setToken } from '@/lib/session';
@@ -97,10 +98,11 @@ export default function Room() {
   const me = game.players.find((p) => p.id === game.myPlayerId);
   const cur = game.players.find((p) => p.id === game.currentPlayerId);
   const myTurn = !!me && game.phase === 'playing' && game.currentPlayerId === me.id;
-  const canTakeTurn = myTurn && !game.debt;
+   const canTakeTurn = myTurn && !game.debt && !game.auction;
   const myDebt = !!me && game.debt?.debtorPlayerId === me.id;
   const rolled = game.lastRoll.length === 2;
   const curSpace = cur ? game.board[cur.position] : undefined;
+   const canDecline = canTakeTurn && rolled && !!curSpace && curSpace.price != null && !curSpace.ownerPlayerId && !me?.jailed;
    const canBuy = canTakeTurn && rolled && !!curSpace && curSpace.price != null && !curSpace.ownerPlayerId && !!me && !me.bankrupt && me.cash >= curSpace.price && !me.jailed;
   const winner = game.players.find((p) => p.id === game.winnerPlayerId);
   const shown = game.board[sel ?? cur?.position ?? 0];
@@ -130,7 +132,7 @@ export default function Room() {
             <div className="panel mb-4 grid gap-2 p-5 text-sm sm:grid-cols-2" data-testid="panel-rules">
               <p><b>Turn.</b> {classic ? 'Roll both dice and move that many spaces. Doubles earn another roll after resolving the space. Three consecutive doubles send you to Jail.' : 'Roll both dice once per turn and move clockwise. This saved game keeps its original 28-space rules.'}</p>
               <p><b>{classic ? 'GO' : 'Start'}.</b> Everyone begins with $1,500 and earns $200 each time they pass the starting space.</p>
-              <p><b>Buy.</b> Land on an unowned property you can afford and you may buy it, or pass.</p>
+              <p><b>Buy & auction.</b> Buy an unowned deed at its listed price, or decline to open an auction—even if you cannot afford the listed price. Every live player can bid, including you and players in Jail. Opening bid $10; whole-dollar increases of at least $10, no more than available cash. Withdraw permanently or place a binding bid. The highest bid wins after 30 seconds without a new bid, or when all other players withdraw. No bids leaves the deed with the bank. Timers, trades and property management pause. Afterward the next turn begins, or an earned doubles roll resumes with the saved time.</p>
               <p><b>Rent.</b> Pay the current rent shown on the deed. Mortgaged spaces collect none. A full, undeveloped and unmortgaged color group doubles base rent.</p>
               <p><b>Development.</b> During your turn, own a full unmortgaged group to build evenly up to four houses, then a hotel. {classic ? 'The deed shows the standard building cost and rent at every level. Brown/light blue cost $50 per level; pink/orange $100; red/yellow $150; green/dark blue $200.' : 'Copper costs $50 per level; Coral/Garden $100; Violet/Sapphire $150; Rose/Gold $200. House rents are 3/5/7/9× base; a hotel pays 12×.'} Sell evenly from the highest level for half cost. A hotel sells back to four houses. Building supply is unlimited.</p>
               <p><b>Mortgages.</b> Sell every building in a group before mortgaging a deed for half its price. Redeem for that advance plus 10%, rounded up. Mortgaged railroads/utilities do not count toward other deeds' rent.</p>
@@ -197,6 +199,7 @@ export default function Room() {
               <div className="space-y-3">
                 <TurnTimer game={game} now={clock.now} />
                 <DebtPanel game={game} code={code} token={token} disabled={busy} onGame={setGame} onError={setErr} />
+                 <AuctionPanel key={game.auction?.id ?? 'none'} game={game} code={code} token={token} now={clock.now} disabled={busy} onGame={setGame} onError={setErr} />
                 <div className="flex items-center justify-between">
                   <h2 className="display text-2xl font-black">{myTurn ? 'Your move' : cur ? `${cur.name}'s move` : 'In play'}</h2>
                   <span className="font-mono text-xs text-muted-foreground">Turn {game.turnNumber}</span>
@@ -212,13 +215,13 @@ export default function Room() {
                   <div className="grid gap-2">
                     {canBuy && curSpace && <button className="btn btn-gold" disabled={busy} onClick={() => act(buy)} data-testid="button-buy">Buy {curSpace.name} for {money(curSpace.price)}</button>}
                      {extraRoll && <p className="text-sm font-bold text-primary">Doubles! You get another roll after resolving this space.</p>}
-                     <button className="btn" disabled={busy} onClick={() => act(end)} data-testid="button-end-turn">{extraRoll ? (canBuy ? 'Pass & roll again' : 'Continue — roll again') : (canBuy ? 'Pass' : 'End turn')}</button>
+                      <button className="btn" disabled={busy} onClick={() => act(end)} data-testid="button-end-turn">{canDecline ? 'Decline & open auction' : extraRoll ? 'Continue — roll again' : 'End turn'}</button>
                   </div>
                 )}
-                {me && !myTurn && <p className="text-sm text-muted-foreground">{me.resigned ? 'You resigned and are now watching.' : me.bankrupt ? 'You are out and are now watching.' : 'Sit tight. It is not your turn.'}</p>}
+                 {me && !myTurn && !game.auction && <p className="text-sm text-muted-foreground">{me.resigned ? 'You resigned and are now watching.' : me.bankrupt ? 'You are out and are now watching.' : 'Sit tight. It is not your turn.'}</p>}
               </div>
             )}
-            <ExitSeat game={game} code={code} token={token} disabled={busy || !!game.debt} onGame={setGame} onToken={setTok} onError={setErr} />
+             <ExitSeat game={game} code={code} token={token} disabled={busy || !!game.debt || !!game.auction} onGame={setGame} onToken={setTok} onError={setErr} />
           </section>
 
           <section className="panel p-5">
@@ -250,8 +253,8 @@ export default function Room() {
           </section>
 
           {shown && <div className="sm:hidden"><TileDetail space={shown} players={game.players} /></div>}
-          {(game.debt ? myDebt : myTurn) && me && !me.bankrupt && !disconnected && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
-          {!disconnected && (game.phase === 'playing' || game.trades.length > 0) && <TradePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} myTurn={myTurn} />}
+           {!game.auction && (game.debt ? myDebt : myTurn) && me && !me.bankrupt && !disconnected && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
+           {!game.auction && !disconnected && (game.phase === 'playing' || game.trades.length > 0) && <TradePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} myTurn={myTurn} />}
 
           <section className="panel p-5">
             <h2 className="display mb-2 text-xl font-black">Table talk</h2>
