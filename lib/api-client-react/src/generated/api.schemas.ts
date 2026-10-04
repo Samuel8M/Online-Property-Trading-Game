@@ -130,6 +130,21 @@ export interface GameTrade {
   createdTurn: number;
 }
 
+export interface GameDebt {
+  id: string;
+  debtorPlayerId: string;
+  /**
+     * Null means the bank
+     * @nullable
+     */
+  creditorPlayerId: string | null;
+  /**
+     * Full amount owed; no partial payment has been taken
+     * @minimum 1
+     */
+  amount: number;
+}
+
 export interface GameView {
   code: string;
   phase: GameViewPhase;
@@ -157,6 +172,7 @@ export interface GameView {
      * @nullable
      */
   turnDeadline?: number | null;
+  debt?: GameDebt | null;
   turnDurationMs?: number;
 }
 
@@ -247,6 +263,22 @@ export interface GameJoinInput {
      */
   playerName: string;
   sessionToken?: string;
+}
+
+export type DebtResolutionInputAction = typeof DebtResolutionInputAction[keyof typeof DebtResolutionInputAction];
+
+
+export const DebtResolutionInputAction = {
+  settle: 'settle',
+  bankrupt: 'bankrupt',
+} as const;
+
+export interface DebtResolutionInput {
+  /** @minLength 1 */
+  sessionToken: string;
+  /** @minLength 1 */
+  debtId: string;
+  action: DebtResolutionInputAction;
 }
 
 export interface GameActionInput {

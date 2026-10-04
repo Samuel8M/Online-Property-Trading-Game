@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addPlayer, createRoom, start, buy, end, roll, view, normalizeGame,
-  manageProperty, proposeTrade, respondTrade, reconcileTrades, rentFor, GameError,
+  manageProperty, proposeTrade, respondTrade, reconcileTrades, rentFor, GameError, resolveDebt,
 } from "./game-engine";
 import type { StoredGame } from "./game-engine";
 import type { PropertyManagementInput, TradeProposalInput } from "@workspace/api-zod";
@@ -305,6 +305,8 @@ test("bankruptcy to the bank clears developments and mortgages", () => {
   t.game.board[1]!.buildingLevel = 1; t.game.board[4]!.mortgaged = true;
   t.p.cash = 0; t.p.jailed = true;
   roll(t.game, t.a); normalizeGame(t.game);
+  assert.equal(t.p.bankrupt, false);
+  resolveDebt(t.game, { sessionToken: t.a, debtId: t.game.debt!.id, action: "bankrupt" });
   assert.equal(t.p.bankrupt, true);
   for (const id of [1, 3, 4]) {
     assert.equal(t.game.board[id]!.ownerPlayerId, null);
@@ -324,6 +326,8 @@ test("landing actually charges upgraded rent and preserves inherited asset state
   t.q.properties = t.game.board.filter(s => s.ownerPlayerId === t.q.id).map(s => s.id);
   t.p.cash = 100;
   roll(t.game, t.a);
+  assert.equal(t.p.bankrupt, false);
+  resolveDebt(t.game, { sessionToken: t.a, debtId: t.game.debt!.id, action: "bankrupt" });
   assert.equal(t.p.bankrupt, true);
   assert.equal(t.p.cash, 0);
   assert.equal(t.q.cash, 1600); // only the $100 available toward $120 rent

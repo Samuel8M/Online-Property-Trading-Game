@@ -212,6 +212,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameView"
+  /games/{code}/debt:
+    post:
+      operationId: resolveDebt
+      tags: [games]
+      summary: Settle the saved debt or declare bankruptcy
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebtResolutionInput"
+      responses:
+        "200":
+          description: Debt resolved or next debt presented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "400":
+          description: Invalid or unaffordable debt action
+        "403":
+          description: Only the debtor may resolve this debt
+        "404":
+          description: Room not found
   /games/{code}/pass:
     post:
       operationId: endTurn
@@ -392,6 +421,10 @@ components:
         rollSerial: { type: integer }
         serverTime: { type: integer, description: Server epoch milliseconds at response time }
         turnDeadline: { type: ["integer", "null"], description: Persisted server turn deadline in epoch milliseconds }
+        debt:
+          anyOf:
+            - $ref: "#/components/schemas/GameDebt"
+            - { type: "null" }
         turnDurationMs: { type: integer }
     GamePlayer:
       type: object
@@ -499,6 +532,21 @@ components:
       properties:
         playerName: { type: string, minLength: 1, maxLength: 18 }
         sessionToken: { type: string }
+    GameDebt:
+      type: object
+      required: [id, debtorPlayerId, creditorPlayerId, amount]
+      properties:
+        id: { type: string }
+        debtorPlayerId: { type: string }
+        creditorPlayerId: { type: ["string", "null"], description: Null means the bank }
+        amount: { type: integer, minimum: 1, description: Full amount owed; no partial payment has been taken }
+    DebtResolutionInput:
+      type: object
+      required: [sessionToken, debtId, action]
+      properties:
+        sessionToken: { type: string, minLength: 1 }
+        debtId: { type: string, minLength: 1 }
+        action: { type: string, enum: [settle, bankrupt] }
     GameActionInput:
       type: object
       required: [sessionToken]

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addPlayer, createRoom, start, roll, end, leaveJail, view, buy } from "./game-engine";
+import { addPlayer, createRoom, start, roll, end, leaveJail, view, buy, resolveDebt } from "./game-engine";
 function setup() {
   const { game, token } = createRoom("TEST40", "Alice");
   const otherToken = addPlayer(game, "Bob"); start(game, token);
@@ -85,5 +85,6 @@ test("bankrupt players return held Jail Free cards to the bank's deck", () => {
   const { game, token, alice } = setup(); game.chanceDeck = [7, 0, 1]; alice.position = 4;
   roll(game, token, [1, 2]); assert.equal(alice.jailCards, 1);
   game.lastRoll = []; alice.position = 1; alice.cash = 1; roll(game, token, [1, 2]);
+  resolveDebt(game, { sessionToken: token, debtId: game.debt!.id, action: "bankrupt" });
   assert.equal(alice.bankrupt, true); assert.equal(alice.jailCards, 0); assert.equal(game.chanceDeck.includes(7), true);
 });

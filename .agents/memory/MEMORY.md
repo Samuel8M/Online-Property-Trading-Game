@@ -1,2 +1,3 @@
 - [API codegen collisions](api-codegen-collisions.md) — path-plus-query operations can generate conflicting barrel exports; browser client types need DOM iterable definitions.
 - [Rebase auto-merges](rebase-auto-merges.md) — marker-free route files can still be malformed after automatic merge resolution; verify the combined handlers.
+- [Debt recovery policy](debt-recovery-policy.md) — timeout and trade restrictions protect an explicit debtor choice and the saved creditor.

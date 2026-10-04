@@ -21,6 +21,7 @@ export function useRoomClock(game: GameView | undefined, updatedAt: number) {
 }
 
 export function TurnTimer({ game, now }: { game: GameView; now: number }) {
+  if (game.debt) return <div className="rounded-lg border-2 border-border p-3 text-sm font-bold" data-testid="turn-timer">Turn timer paused — resolve the debt to continue.</div>;
   if (game.phase !== 'playing' || game.turnDeadline == null) return null;
   const seconds = Math.max(0, Math.ceil((game.turnDeadline - now) / 1000));
   return <div className={`rounded-lg border-2 p-3 ${seconds <= 15 ? 'border-primary text-primary' : 'border-border'}`} data-testid="turn-timer">

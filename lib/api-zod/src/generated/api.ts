@@ -49,6 +49,7 @@ export const createGameResponseGameBoardItemBuildingLevelMax = 5;
 
 
 
+
 export const CreateGameResponse = zod.object({
   "game": zod.object({
   "code": zod.string(),
@@ -115,6 +116,12 @@ export const CreateGameResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
@@ -135,6 +142,7 @@ export const GetGameParams = zod.object({
 
 export const getGameResponseBoardItemBuildingLevelMin = 0;
 export const getGameResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -203,6 +211,12 @@ export const GetGameResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -224,6 +238,7 @@ export const ResignGameBody = zod.object({
 
 export const resignGameResponseBoardItemBuildingLevelMin = 0;
 export const resignGameResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -292,6 +307,12 @@ export const ResignGameResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -319,6 +340,7 @@ export const JoinGameBody = zod.object({
 
 export const joinGameResponseGameBoardItemBuildingLevelMin = 0;
 export const joinGameResponseGameBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -388,6 +410,12 @@ export const JoinGameResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
@@ -411,6 +439,7 @@ export const StartGameBody = zod.object({
 
 export const startGameResponseBoardItemBuildingLevelMin = 0;
 export const startGameResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -479,6 +508,12 @@ export const StartGameResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -500,6 +535,7 @@ export const RollDiceBody = zod.object({
 
 export const rollDiceResponseBoardItemBuildingLevelMin = 0;
 export const rollDiceResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -568,6 +604,12 @@ export const RollDiceResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -589,6 +631,7 @@ export const BuyPropertyBody = zod.object({
 
 export const buyPropertyResponseBoardItemBuildingLevelMin = 0;
 export const buyPropertyResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -657,6 +700,12 @@ export const BuyPropertyResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -679,6 +728,7 @@ export const LeaveJailBody = zod.object({
 
 export const leaveJailResponseBoardItemBuildingLevelMin = 0;
 export const leaveJailResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -747,6 +797,110 @@ export const LeaveJailResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
+  "turnDurationMs": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Settle the saved debt or declare bankruptcy
+ */
+export const ResolveDebtParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+
+
+
+
+export const ResolveDebtBody = zod.object({
+  "sessionToken": zod.string().min(1),
+  "debtId": zod.string().min(1),
+  "action": zod.enum(['settle', 'bankrupt'])
+})
+
+export const resolveDebtResponseBoardItemBuildingLevelMin = 0;
+export const resolveDebtResponseBoardItemBuildingLevelMax = 5;
+
+
+
+
+export const ResolveDebtResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(resolveDebtResponseBoardItemBuildingLevelMin).max(resolveDebtResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -768,6 +922,7 @@ export const EndTurnBody = zod.object({
 
 export const endTurnResponseBoardItemBuildingLevelMin = 0;
 export const endTurnResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -836,6 +991,12 @@ export const EndTurnResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -862,6 +1023,7 @@ export const ManagePropertyBody = zod.object({
 
 export const managePropertyResponseBoardItemBuildingLevelMin = 0;
 export const managePropertyResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -930,6 +1092,12 @@ export const ManagePropertyResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -973,6 +1141,7 @@ export const ProposeTradeBody = zod.object({
 
 export const proposeTradeResponseBoardItemBuildingLevelMin = 0;
 export const proposeTradeResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -1041,6 +1210,12 @@ export const ProposeTradeResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 
@@ -1065,6 +1240,7 @@ export const RespondTradeBody = zod.object({
 
 export const respondTradeResponseBoardItemBuildingLevelMin = 0;
 export const respondTradeResponseBoardItemBuildingLevelMax = 5;
+
 
 
 
@@ -1133,6 +1309,12 @@ export const RespondTradeResponse = zod.object({
   "rollSerial": zod.number().int().optional(),
   "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
   "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
   "turnDurationMs": zod.number().int().optional()
 })
 

@@ -6,8 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './debtResolutionInput';
+export * from './debtResolutionInputAction';
 export * from './gameActionInput';
 export * from './gameCreateInput';
+export * from './gameDebt';
 export * from './gameJoinInput';
 export * from './gameJoinResult';
 export * from './gamePlayer';

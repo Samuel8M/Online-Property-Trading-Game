@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  DebtResolutionInput,
   GameActionInput,
   GameCreateInput,
   GameJoinInput,
@@ -912,6 +913,95 @@ export const useLeaveJail = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getLeaveJailMutationOptions(options));
+    }
+
+export const getResolveDebtUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}/debt`
+}
+
+/**
+ * @summary Settle the saved debt or declare bankruptcy
+ */
+export const resolveDebt = async (code: string,
+    debtResolutionInput: DebtResolutionInput, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameView>(getResolveDebtUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(debtResolutionInput)
+  }
+);}
+
+
+
+
+
+export const getResolveDebtMutationKey = () => ['resolveDebt'] as const;
+
+export const getResolveDebtMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveDebt>>, TError,ResolveDebtMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveDebt>>, TError,ResolveDebtMutationVariables, TContext> => {
+
+const mutationKey = getResolveDebtMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveDebt>>, ResolveDebtMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  resolveDebt(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveDebtMutationResult = NonNullable<Awaited<ReturnType<typeof resolveDebt>>>
+    export type ResolveDebtMutationBody = BodyType<DebtResolutionInput>
+    export type ResolveDebtMutationError = ErrorType<void>
+    export type ResolveDebtMutationVariables = {code: string;data: BodyType<DebtResolutionInput>}
+
+    /**
+ * @summary Settle the saved debt or declare bankruptcy
+ */
+export const useResolveDebt = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveDebt>>, TError,ResolveDebtMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveDebt>>,
+        TError,
+        ResolveDebtMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResolveDebtMutationOptions(options));
     }
 
 export const getEndTurnUrl = (code: string,) => {

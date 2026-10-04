@@ -14,7 +14,8 @@ export function ManagePanel({ game, code, token, onGame, onErr }: Common) {
   const m = useManageProperty();
   const [pending, setPending] = useState('');
   const me = game.players.find((p) => p.id === game.myPlayerId);
-  if (!me || me.bankrupt || game.phase !== 'playing' || game.currentPlayerId !== me.id) return null;
+  const inDebt = !!game.debt;
+  if (!me || me.bankrupt || game.phase !== 'playing' || (inDebt ? game.debt?.debtorPlayerId !== me.id : game.currentPlayerId !== me.id)) return null;
   const owned = me.properties.map((id) => game.board[id]).filter(Boolean);
   const run = (s: GameSpace, action: 'build' | 'sell-building' | 'mortgage' | 'redeem') => {
     setPending(`${s.id}:${action}`);
@@ -26,7 +27,7 @@ export function ManagePanel({ game, code, token, onGame, onErr }: Common) {
   return (
     <section className="panel p-5" data-testid="panel-manage">
       <h2 className="display mb-1 text-xl font-black">Your properties</h2>
-      <p className="mb-3 text-xs text-muted-foreground">Build evenly, sell for half, mortgage for half price. Available before or after your roll.</p>
+      <p className="mb-3 text-xs text-muted-foreground">{inDebt ? 'Raise cash for your debt: sell evenly for half cost, or mortgage undeveloped deeds for half price.' : 'Build evenly, sell for half, mortgage for half price. Available before or after your roll.'}</p>
       {owned.length === 0 && <p className="text-sm text-muted-foreground">You own nothing yet. Buy a space to begin.</p>}
       <ul className="space-y-2">
         {owned.map((s) => {
@@ -57,10 +58,10 @@ export function ManagePanel({ game, code, token, onGame, onErr }: Common) {
                 {s.mortgaged ? ` · Redeem ${money(redeemCost(s))}` : ''}
               </p>
               <div className="mt-2 flex flex-wrap gap-1">
-                {colored && b(`Build ${money(cost)}`, 'build', canBuild, 'Needs the full unmortgaged group, the lowest level, and enough cash')}
+                {colored && !inDebt && b(`Build ${money(cost)}`, 'build', canBuild, 'Needs the full unmortgaged group, the lowest level, and enough cash')}
                 {colored && b(`Sell +${money(Math.floor(cost / 2))}`, 'sell-building', canSell, 'Sell from the highest level in the group')}
                 {!s.mortgaged && b(`Mortgage +${money(Math.floor((s.price ?? 0) / 2))}`, 'mortgage', canMort, 'Sell every building in the group first')}
-                {s.mortgaged && b(`Redeem ${money(redeemCost(s))}`, 'redeem', canRedeem, 'Not enough cash')}
+                {s.mortgaged && !inDebt && b(`Redeem ${money(redeemCost(s))}`, 'redeem', canRedeem, 'Not enough cash')}
               </div>
             </li>
           );
@@ -95,7 +96,7 @@ export function TradePanel({ game, code, token, onGame, onErr, myTurn }: Common 
   const hasOutgoing = game.trades.some((t) => t.status === 'pending' && t.proposerPlayerId === me?.id);
 
   if (game.phase === 'lobby' && !game.trades.length) return null;
-  const canAct = !!me && !me.bankrupt && game.phase === 'playing';
+  const canAct = !!me && !me.bankrupt && game.phase === 'playing' && !game.debt;
   const canPropose = canAct && myTurn;
   const nm = (id: string) => game.players.find((p) => p.id === id)?.name ?? 'Player';
   const toggle = (set: (f: (a: number[]) => number[]) => void, id: number) => set((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
@@ -180,6 +181,7 @@ export function TradePanel({ game, code, token, onGame, onErr, myTurn }: Common 
   return (
     <section className="panel p-5" data-testid="panel-trades">
       <h2 className="display mb-2 text-xl font-black">Trades</h2>
+      {game.debt && <p className="mb-3 text-sm text-muted-foreground">Trades are paused until the debt is resolved.</p>}
       {canPropose && !open && (
         <button className="btn btn-primary mb-3 w-full" disabled={hasOutgoing || targets.length === 0} onClick={() => setOpen(true)} data-testid="button-new-trade">
           {hasOutgoing ? 'Offer pending' : 'Propose a trade'}

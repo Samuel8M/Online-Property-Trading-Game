@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import type {
   GameView, GamePlayer, GameSpace, GameTrade, TradeProperty,
-  PropertyManagementInput, TradeProposalInput, TradeResponseInput,
+  PropertyManagementInput, TradeProposalInput, TradeResponseInput, DebtResolutionInput,
 } from "@workspace/api-zod";
 import { classicBoard, chanceCards, chestCards, type ClassicCard } from "./classic-board";
 
@@ -10,6 +10,9 @@ export type StoredGame = Omit<GameView, "myPlayerId" | "serverTime"> & {
   chanceDeck?: number[];
   chestDeck?: number[];
   heldJailCards?: Record<string, ("chance" | "chest")[]>;
+  pendingPayments?: { debtorPlayerId: string; creditorPlayerId: string | null; amount: number }[];
+  debtTurnRemainingMs?: number;
+  debtContinuation?: { playerId: string; steps: number };
 };
 export class GameError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -33,9 +36,10 @@ export function addHistory(game: StoredGame, text: string) {
 }
 export function normalizeGame(game: StoredGame, now = Date.now()): StoredGame {
   game.trades ??= [];
+  game.debt ??= null;
   game.turnDurationMs = TURN_DURATION_MS;
   game.turnDeadline ??= game.phase === "playing" ? now + TURN_DURATION_MS : null;
-  if (game.phase !== "playing") game.turnDeadline = null;
+  if (game.phase !== "playing" || game.debt) game.turnDeadline = null;
   for (const player of game.players) {
     // Old rooms get a full reconnect grace period, not an immediate timeout.
     player.lastSeenAt ??= now;
@@ -103,7 +107,7 @@ export function createRoom(code: string, name: string): { game: StoredGame; toke
 }
 export function view(game: StoredGame, token?: string, now = Date.now()): GameView {
   normalizeGame(game, now);
-  const { tokens, chanceDeck, chestDeck, heldJailCards, ...publicGame } = game;
+  const { tokens, chanceDeck, chestDeck, heldJailCards, pendingPayments, debtTurnRemainingMs, debtContinuation, ...publicGame } = game;
   return { ...publicGame, serverTime: now, myPlayerId: token ? tokens[token] ?? null : null };
 }
 function playerFor(game: StoredGame, token: string): GamePlayer {
@@ -112,12 +116,14 @@ function playerFor(game: StoredGame, token: string): GamePlayer {
   return player;
 }
 function activePlayer(game: StoredGame, token: string): GamePlayer {
+  if (game.debt) throw new GameError("Resolve the outstanding debt first.");
   const player = playerFor(game, token);
   if (game.phase !== "playing") throw new GameError("The game is not in progress.");
   if (game.currentPlayerId !== player.id) throw new GameError("Wait for your turn.");
   return player;
 }
 function livePlayer(game: StoredGame, token: string): GamePlayer {
+  if (game.debt) throw new GameError("Trades are paused while a debt is outstanding.");
   const player = playerFor(game, token);
   if (game.phase !== "playing") throw new GameError("The game is not in progress.");
   if (player.bankrupt) throw new GameError("Bankrupt players cannot manage assets or trade.");
@@ -135,11 +141,27 @@ function checkWinner(game: StoredGame) {
   }
 }
 function pay(game: StoredGame, player: GamePlayer, amount: number, creditor?: GamePlayer) {
-  const payment = Math.min(player.cash, amount);
+  if (amount <= 0) return;
+  if (game.debt) {
+    (game.pendingPayments ??= []).push({ debtorPlayerId: player.id, creditorPlayerId: creditor?.id ?? null, amount });
+    return;
+  }
+  if (player.cash < amount) {
+    game.debtTurnRemainingMs ??= Math.max(1, (game.turnDeadline ?? Date.now() + TURN_DURATION_MS) - Date.now());
+    game.debt = { id: randomUUID(), debtorPlayerId: player.id, creditorPlayerId: creditor?.id ?? null, amount };
+    game.turnDeadline = null;
+    addHistory(game, `${player.name} owes $${amount} to ${creditor?.name ?? "the bank"}. Sell buildings or mortgage deeds, then pay or declare bankruptcy. The turn timer is paused.`);
+    return;
+  }
+  player.cash -= amount;
+  if (creditor) creditor.cash += amount;
+}
+function bankruptForDebt(game: StoredGame, player: GamePlayer, amount: number, creditor?: GamePlayer) {
+  const payment = player.cash;
   player.cash -= payment;
   if (creditor) creditor.cash += payment;
-  if (payment < amount) {
     player.bankrupt = true;
+    player.cash = 0;
     for (const tile of game.board.filter(s => s.ownerPlayerId === player.id)) {
       tile.ownerPlayerId = creditor?.id ?? null;
       if (creditor) creditor.properties.push(tile.id);
@@ -158,9 +180,51 @@ function pay(game: StoredGame, player: GamePlayer, amount: number, creditor?: Ga
     }
     if (game.heldJailCards) delete game.heldJailCards[player.id];
     player.jailCards = 0;
-    addHistory(game, `${player.name} could not pay $${amount} and is bankrupt. ${creditor ? "Their properties transfer to " + creditor.name + "." : "Their properties return to the bank."}`);
+    addHistory(game, `${player.name} declared bankruptcy on a $${amount} debt. ${creditor ? "Their properties transfer to " + creditor.name + "." : "Their properties return to the bank."}`);
     checkWinner(game);
+}
+export function resolveDebt(game: StoredGame, input: DebtResolutionInput) {
+  const player = playerFor(game, input.sessionToken);
+  const debt = game.debt;
+  if (game.phase !== "playing" || !debt || debt.id !== input.debtId) throw new GameError("This debt is no longer outstanding.");
+  if (debt.debtorPlayerId !== player.id) throw new GameError("Only the debtor can resolve this debt.", 403);
+  const creditor = game.players.find(p => p.id === debt.creditorPlayerId);
+  if (input.action === "settle") {
+    if (player.cash < debt.amount) throw new GameError(`Raise another $${debt.amount - player.cash} before paying this debt.`);
+    player.cash -= debt.amount;
+    if (creditor) creditor.cash += debt.amount;
+    addHistory(game, `${player.name} settled $${debt.amount} with ${creditor?.name ?? "the bank"}.`);
+  } else if (input.action === "bankrupt") {
+    bankruptForDebt(game, player, debt.amount, creditor);
+  } else throw new GameError("Unknown debt action.");
+  game.debt = null;
+  while (game.pendingPayments?.length && !game.debt && game.phase === "playing") {
+    const next = game.pendingPayments.shift()!;
+    const debtor = game.players.find(p => p.id === next.debtorPlayerId);
+    const receiver = game.players.find(p => p.id === next.creditorPlayerId);
+    if (debtor && !debtor.bankrupt && (!receiver || !receiver.bankrupt)) pay(game, debtor, next.amount, receiver);
   }
+  if (game.debt) return;
+  const continuation = game.debtContinuation;
+  delete game.debtContinuation;
+  if (game.phase === "playing" && continuation) {
+    const mover = game.players.find(p => p.id === continuation.playerId)!;
+    if (!mover.bankrupt) {
+      mover.jailed = false;
+      mover.jailTurns = 0;
+      if (continuation.steps) {
+        move(game, mover, continuation.steps);
+        resolveLanding(game, mover);
+      }
+    }
+  }
+  if (game.debt) return;
+  if (game.phase === "playing") {
+    if (game.players.find(p => p.id === game.currentPlayerId)?.bankrupt) advanceTurn(game);
+    else game.turnDeadline = Date.now() + (game.debtTurnRemainingMs ?? TURN_DURATION_MS);
+  }
+  delete game.debtTurnRemainingMs;
+  delete game.pendingPayments;
 }
 function move(game: StoredGame, player: GamePlayer, steps: number) {
   if (player.position + steps >= game.board.length) {
@@ -307,10 +371,13 @@ export function roll(game: StoredGame, token: string, dice: [number, number] = [
   game.extraRoll = false;
   if (player.jailed) {
     if (game.board.length === 28) {
-      player.jailed = false;
       addHistory(game, `${player.name} pays $50 and leaves Detention.`);
       pay(game, player, 50);
-      if (player.bankrupt) return;
+      if (game.debt) {
+        game.debtContinuation = { playerId: player.id, steps: dice[0] + dice[1] };
+        return;
+      }
+      player.jailed = false;
     } else {
     game.consecutiveDoubles = 0;
     player.jailTurns = (player.jailTurns ?? 0) + 1;
@@ -324,7 +391,10 @@ export function roll(game: StoredGame, token: string, dice: [number, number] = [
     } else {
       addHistory(game, `${player.name}'s third Jail attempt: pay $50 and move by the dice.`);
       pay(game, player, 50);
-      if (player.bankrupt) return;
+      if (game.debt) {
+        game.debtContinuation = { playerId: player.id, steps: dice[0] + dice[1] };
+        return;
+      }
       player.jailed = false;
       player.jailTurns = 0;
     }
@@ -342,7 +412,7 @@ export function roll(game: StoredGame, token: string, dice: [number, number] = [
   addHistory(game, `${player.name} rolled ${game.lastRoll[0]} + ${game.lastRoll[1]} = ${total}.`);
   move(game, player, total);
   resolveLanding(game, player);
-  if (game.extraRoll && !player.jailed && !player.bankrupt && game.phase === "playing") {
+  if (!game.debt && game.extraRoll && !player.jailed && !player.bankrupt && game.phase === "playing") {
     addHistory(game, `${game.message} Doubles! ${player.name} rolls again after resolving this space.`);
   }
 }
@@ -356,8 +426,11 @@ export function leaveJail(game: StoredGame, token: string, method: "pay" | "card
     if (source) (game[source === "chance" ? "chanceDeck" : "chestDeck"] ??= []).push(source === "chance" ? 7 : 4);
     addHistory(game, `${player.name} uses a Get Out of Jail Free card.`);
   } else {
-    if (player.cash < 50) throw new GameError("You need $50 to pay the Jail fine.");
-    player.cash -= 50;
+    pay(game, player, 50);
+    if (game.debt) {
+      game.debtContinuation = { playerId: player.id, steps: 0 };
+      return;
+    }
     addHistory(game, `${player.name} pays $50 and leaves Jail.`);
   }
   player.jailed = false;
@@ -421,6 +494,7 @@ export function reconcileLifecycle(game: StoredGame, now = Date.now()) {
     return;
   }
   if (game.phase !== "playing") return;
+  if (game.debt) return;
   const current = game.players.find(p => p.id === game.currentPlayerId);
   if (current?.bankrupt) {
     advanceTurn(game, now);
@@ -451,6 +525,7 @@ export function touchPresence(game: StoredGame, token: string | undefined, now =
 }
 
 export function resign(game: StoredGame, token: string) {
+  if (game.debt) throw new GameError("Resolve the outstanding debt before leaving a seat.");
   const player = playerFor(game, token);
   if (player.resigned) return;
   if (game.phase === "finished") throw new GameError("This game has already finished.");
@@ -489,7 +564,10 @@ export function resign(game: StoredGame, token: string) {
 }
 
 export function manageProperty(game: StoredGame, input: PropertyManagementInput) {
-  const player = activePlayer(game, input.sessionToken);
+  const player = game.debt ? playerFor(game, input.sessionToken) : activePlayer(game, input.sessionToken);
+  if (game.debt && (game.debt.debtorPlayerId !== player.id || !["mortgage", "sell-building"].includes(input.action))) {
+    throw new GameError("Only the debtor may sell buildings or mortgage properties during debt resolution.");
+  }
   if (player.bankrupt) throw new GameError("Bankrupt players cannot manage property.");
   const tile = game.board.find(s => s.id === input.spaceId);
   if (!tile || tile.price === null || tile.ownerPlayerId !== player.id) throw new GameError("Choose a property you own.");

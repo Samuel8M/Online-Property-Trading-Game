@@ -8,7 +8,9 @@ Older waiting rooms adopt the classic board on start, as in the main project.
 
 ## Development
 
-- Only the active, non-bankrupt player may manage property, before or after rolling.
+- Normally only the active, non-bankrupt player may manage property, before or after
+  rolling. During a debt pause only the debtor may sell buildings or mortgage deeds,
+  including a debtor who owes money off-turn because of a card.
 - Only colored properties can be developed. Own every property in the color group,
   with no mortgages anywhere in that group.
 - Build one level at a time, evenly: choose a property at the group's lowest level.
@@ -34,9 +36,32 @@ Older waiting rooms adopt the classic board on start, as in the main project.
   do not count toward station rent. Mortgaged utilities do not count toward the
   two-utility multiplier; normal utility rent still uses the actual landing dice.
 - Redeem for the mortgage advance plus 10%, rounded up, when affordable.
-- Existing automatic bankruptcy remains: there is no debt-resolution pause.
-  Manage assets before rolling if cash is low. Properties inherited by a creditor
-  keep buildings and mortgages; properties returned to the bank lose both.
+
+## Debt resolution and bankruptcy
+
+- Rent, taxes, Jail/Detention fines, repairs and other card payments that exceed
+  cash enter a debt-resolution pause instead of causing automatic bankruptcy.
+  No partial payment is taken. The full amount and creditor (or bank) are saved.
+- Only the debtor can sell buildings evenly or mortgage undeveloped deeds.
+  Building, redeeming, buying, rolling, passing, trading and seat resignation are
+  blocked for everyone during the pause. Existing offers still undergo normal
+  asset validation but cannot be accepted during debt resolution.
+- Once enough cash is raised, the debtor explicitly pays the full saved amount.
+  Repeated or stale settlement requests cannot pay again: each debt has its own ID,
+  checked under the same database row lock as every other room mutation.
+- The debtor may instead confirm permanent bankruptcy. All remaining cash, deeds
+  and held Jail cards transfer to the creditor. Inherited deeds retain buildings
+  and mortgages; deeds returned to the bank lose both, and held cards return to
+  their decks. The bankrupt player is out; the last live player wins.
+- The turn timer pauses without a debt deadline and survives reloads and restarts.
+  After resolution, the original turn resumes with its saved remaining time.
+  A bankrupt active player is skipped and the next player gets a full turn.
+  An off-turn debtor does not take over the active player's turn.
+- Cards involving multiple players save remaining obligations and resolve them
+  in player order, one debt at a time. Bankruptcy cancels later obligations of
+  the bankrupt player. A forced Jail fine pauses movement; payment resumes the
+  already rolled move exactly once, including any new landing payment.
+  Choosing to pay before rolling instead releases the player without rolling.
 
 ## Consensual trades
 

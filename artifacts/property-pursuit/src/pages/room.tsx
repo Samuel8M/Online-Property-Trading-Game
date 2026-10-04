@@ -15,6 +15,7 @@ import {
 import type { GameView } from '@workspace/api-client-react';
 import { Tile, TileDetail } from '@/components/board';
 import { ManagePanel, TradePanel } from '@/components/manage';
+import { DebtPanel } from '@/components/debt';
 import { DicePair } from '@/components/dice';
 import { ExitSeat, TurnTimer, useRoomClock } from '@/components/room-lifecycle';
 import { errMsg, getToken, money, setToken } from '@/lib/session';
@@ -96,9 +97,11 @@ export default function Room() {
   const me = game.players.find((p) => p.id === game.myPlayerId);
   const cur = game.players.find((p) => p.id === game.currentPlayerId);
   const myTurn = !!me && game.phase === 'playing' && game.currentPlayerId === me.id;
+  const canTakeTurn = myTurn && !game.debt;
+  const myDebt = !!me && game.debt?.debtorPlayerId === me.id;
   const rolled = game.lastRoll.length === 2;
   const curSpace = cur ? game.board[cur.position] : undefined;
-   const canBuy = myTurn && rolled && !!curSpace && curSpace.price != null && !curSpace.ownerPlayerId && !!me && !me.bankrupt && me.cash >= curSpace.price && !me.jailed;
+   const canBuy = canTakeTurn && rolled && !!curSpace && curSpace.price != null && !curSpace.ownerPlayerId && !!me && !me.bankrupt && me.cash >= curSpace.price && !me.jailed;
   const winner = game.players.find((p) => p.id === game.winnerPlayerId);
   const shown = game.board[sel ?? cur?.position ?? 0];
    const busy = disconnected || roll.isPending || buy.isPending || end.isPending || start.isPending || jail.isPending;
@@ -131,7 +134,8 @@ export default function Room() {
               <p><b>Rent.</b> Pay the current rent shown on the deed. Mortgaged spaces collect none. A full, undeveloped and unmortgaged color group doubles base rent.</p>
               <p><b>Development.</b> During your turn, own a full unmortgaged group to build evenly up to four houses, then a hotel. {classic ? 'The deed shows the standard building cost and rent at every level. Brown/light blue cost $50 per level; pink/orange $100; red/yellow $150; green/dark blue $200.' : 'Copper costs $50 per level; Coral/Garden $100; Violet/Sapphire $150; Rose/Gold $200. House rents are 3/5/7/9× base; a hotel pays 12×.'} Sell evenly from the highest level for half cost. A hotel sells back to four houses. Building supply is unlimited.</p>
               <p><b>Mortgages.</b> Sell every building in a group before mortgaging a deed for half its price. Redeem for that advance plus 10%, rounded up. Mortgaged railroads/utilities do not count toward other deeds' rent.</p>
-              <p><b>Trades.</b> The active player may propose one outgoing offer with cash and/or undeveloped deeds. Only the recipient can accept or reject, even off-turn; only the proposer can cancel. Mortgages stay attached with no transfer fee, and the new owner owes redemption. Offers reserve nothing; changed assets or insufficient funds invalidate them. Bankruptcy is still automatic—manage cash before rolling.</p>
+              <p><b>Trades.</b> The active player may propose one outgoing offer with cash and/or undeveloped deeds. Only the recipient can accept or reject, even off-turn; only the proposer can cancel. Mortgages stay attached with no transfer fee, and the new owner owes redemption. Offers reserve nothing; changed assets or insufficient funds invalidate them. Trades pause during debt resolution.</p>
+              <p><b>Debt.</b> If rent, taxes, Jail fines or cards exceed your cash, the full debt and creditor are saved. Sell buildings or mortgage deeds before paying in full or choosing permanent bankruptcy. This also applies to off-turn card payments. The timer pauses until all debts are resolved, then resumes with the time remaining. Bankruptcy transfers remaining cash, deeds and held Jail cards to the creditor; deeds returned to the bank lose buildings and mortgages.</p>
               <p><b>Cards & taxes.</b> {classic ? 'Chance and Community Chest have separate decks. Income Tax costs $200; Luxury Tax costs $100. Repair cards charge for your houses and hotels.' : 'Lucky Break events affect cash and movement. City Levy costs $100; Luxury Tax costs $150.'}</p>
               <p><b>{classic ? 'Jail' : 'Detention'}.</b> {classic ? 'Before rolling, pay $50 or use a card. Otherwise try doubles up to three turns. On the third failed attempt, pay $50 and move. Doubles that release you do not earn another roll.' : 'Pay $50 automatically on your next roll to leave.'}</p>
               <p><b>Transport.</b> {classic && 'Utilities charge 4× the landing dice total, or 10× for two unmortgaged utilities. '}Railroad rent doubles for each additional unmortgaged railroad.</p>
@@ -192,18 +196,19 @@ export default function Room() {
             {game.phase === 'playing' && (
               <div className="space-y-3">
                 <TurnTimer game={game} now={clock.now} />
+                <DebtPanel game={game} code={code} token={token} disabled={busy} onGame={setGame} onError={setErr} />
                 <div className="flex items-center justify-between">
                   <h2 className="display text-2xl font-black">{myTurn ? 'Your move' : cur ? `${cur.name}'s move` : 'In play'}</h2>
                   <span className="font-mono text-xs text-muted-foreground">Turn {game.turnNumber}</span>
                 </div>
                 {!me && <p className="text-sm text-muted-foreground">You are watching this game.</p>}
-                 {classic && myTurn && me?.jailed && !rolled && <div className="space-y-2">
+                 {classic && canTakeTurn && me?.jailed && !rolled && <div className="space-y-2">
                    <p className="text-sm">In Jail · attempt {(me.jailTurns ?? 0) + 1} of 3. Roll doubles to leave, or choose below.</p>
-                   <button className="btn w-full" disabled={busy || me.cash < 50} onClick={() => leave('pay')}>Pay $50 to leave Jail</button>
+                   <button className="btn w-full" disabled={busy} onClick={() => leave('pay')}>Pay $50 to leave Jail</button>
                    {!!me.jailCards && <button className="btn w-full" disabled={busy} onClick={() => leave('card')}>Use Get Out of Jail Free card</button>}
                  </div>}
-                {myTurn && !rolled && <button className="btn btn-primary w-full" disabled={busy} onClick={doRoll} data-testid="button-roll">{roll.isPending ? 'Rolling...' : 'Roll the dice'}</button>}
-                {myTurn && rolled && (
+                {canTakeTurn && !rolled && <button className="btn btn-primary w-full" disabled={busy} onClick={doRoll} data-testid="button-roll">{roll.isPending ? 'Rolling...' : 'Roll the dice'}</button>}
+                {canTakeTurn && rolled && (
                   <div className="grid gap-2">
                     {canBuy && curSpace && <button className="btn btn-gold" disabled={busy} onClick={() => act(buy)} data-testid="button-buy">Buy {curSpace.name} for {money(curSpace.price)}</button>}
                      {extraRoll && <p className="text-sm font-bold text-primary">Doubles! You get another roll after resolving this space.</p>}
@@ -213,7 +218,7 @@ export default function Room() {
                 {me && !myTurn && <p className="text-sm text-muted-foreground">{me.resigned ? 'You resigned and are now watching.' : me.bankrupt ? 'You are out and are now watching.' : 'Sit tight. It is not your turn.'}</p>}
               </div>
             )}
-            <ExitSeat game={game} code={code} token={token} disabled={busy} onGame={setGame} onToken={setTok} onError={setErr} />
+            <ExitSeat game={game} code={code} token={token} disabled={busy || !!game.debt} onGame={setGame} onToken={setTok} onError={setErr} />
           </section>
 
           <section className="panel p-5">
@@ -245,7 +250,7 @@ export default function Room() {
           </section>
 
           {shown && <div className="sm:hidden"><TileDetail space={shown} players={game.players} /></div>}
-          {myTurn && me && !me.bankrupt && !disconnected && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
+          {(game.debt ? myDebt : myTurn) && me && !me.bankrupt && !disconnected && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
           {!disconnected && (game.phase === 'playing' || game.trades.length > 0) && <TradePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} myTurn={myTurn} />}
 
           <section className="panel p-5">
