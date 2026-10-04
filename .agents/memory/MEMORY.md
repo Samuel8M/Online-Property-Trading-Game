@@ -4,3 +4,4 @@
 - [Auction participation](auction-policy.md) — explicit declines and voluntary bids; binding bids require protection against intervening cash changes.
 - [Workspace test runtime](test-runtime.md) — bundle shared TypeScript workspace dependencies for executable API tests; native Node resolution is insufficient.
 - [Browser sound consent](browser-sound-consent.md) — a saved sound preference is not autoplay permission; require explicit activation again after reload.
+- [Saved-table recovery](saved-table-recovery.md) — browser-private discovery requires explicit Return consent; watching must not use the browser's saved seat.

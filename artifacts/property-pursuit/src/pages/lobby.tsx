@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  getGame,
   getGetGameQueryKey,
   getListGamesQueryKey,
   useCreateGame,
@@ -10,6 +11,7 @@ import {
   useListGames,
 } from '@workspace/api-client-react';
 import { Die } from '@/components/dice';
+import { SavedTables } from '@/components/saved-tables';
 import { errMsg, getToken, setToken } from '@/lib/session';
 
 export default function Lobby() {
@@ -18,13 +20,39 @@ export default function Lobby() {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [returnError, setReturnError] = useState('');
+  const [returning, setReturning] = useState('');
   const list = useListGames({ query: { queryKey: getListGamesQueryKey(), refetchInterval: 3000 } });
   const create = useCreateGame();
   const join = useJoinGame();
 
   const cleanName = name.trim();
+  const watch = (c: string) => nav(`/room/${c}?watch=1`);
+  const doReturn = async (cc: string) => {
+    if (returning) return;
+    setError('');
+    setReturnError('');
+    const token = getToken(cc);
+    if (!token) { setReturnError(`No saved seat remains for ${cc} on this browser.`); return; }
+    setReturning(cc);
+    try {
+      // This is the first request carrying the token, after explicit consent.
+      const game = await getGame(cc, { headers: { 'X-Game-Token': token } });
+      if (game.phase === 'finished') { watch(cc); return; }
+      const player = game.players.find(p => p.id === game.myPlayerId);
+      if (!player || player.bankrupt || player.resigned) {
+        setReturnError(`Your saved seat for ${cc} is no longer available. You can still Watch, or Forget the saved entry.`);
+        return;
+      }
+      qc.setQueryData(getGetGameQueryKey(cc), game);
+      nav(`/room/${cc}`);
+    } catch (e) {
+      setReturnError(`Could not return to ${cc}. ${errMsg(e)} Your saved session has not been removed.`);
+    } finally { setReturning(''); }
+  };
   const doCreate = () => {
     setError('');
+    setReturnError('');
     create.mutate({ data: { playerName: cleanName } }, {
       onSuccess: (r) => {
         setToken(r.game.code, r.sessionToken);
@@ -38,9 +66,10 @@ export default function Lobby() {
     const cc = c.trim().toUpperCase();
     if (!cc) return;
     setError('');
-    const existing = getToken(cc);
-    if (!cleanName && !existing) { nav(`/room/${cc}`); return; }
-    join.mutate({ code: cc, data: { playerName: cleanName || 'Player', sessionToken: existing || undefined } }, {
+    setReturnError('');
+    if (!cleanName) { watch(cc); return; }
+    if (getToken(cc)) { void doReturn(cc); return; }
+    join.mutate({ code: cc, data: { playerName: cleanName } }, {
       onSuccess: (r) => {
         setToken(cc, r.sessionToken);
         qc.setQueryData(getGetGameQueryKey(cc), r.game);
@@ -76,18 +105,20 @@ export default function Lobby() {
           <label className="block text-sm font-bold">Your name
             <input className="field mt-1" maxLength={18} value={name} onChange={(e) => setName(e.target.value)} placeholder="Marguerite" data-testid="input-name" />
           </label>
-          <button className="btn btn-primary w-full" disabled={!cleanName || create.isPending} onClick={doCreate} data-testid="button-create">
+          <button className="btn btn-primary w-full" disabled={!cleanName || create.isPending || join.isPending || !!returning} onClick={doCreate} data-testid="button-create">
             {create.isPending ? 'Setting the table...' : 'Create a room'}
           </button>
           <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>
           <div className="flex gap-2">
             <input className="field font-mono uppercase" maxLength={8} value={code} onChange={(e) => setCode(e.target.value)} placeholder="ROOM CODE" data-testid="input-code" />
-            <button className="btn btn-gold" disabled={!code.trim() || join.isPending} onClick={() => doJoin(code)} data-testid="button-join-code">Join</button>
+            <button className="btn btn-gold" disabled={!code.trim() || join.isPending || !!returning} onClick={() => doJoin(code)} data-testid="button-join-code">
+              {!cleanName ? 'Watch' : getToken(code.trim()) ? 'Return' : 'Join'}
+            </button>
           </div>
-          {error && <p className="rounded-lg bg-primary/10 p-3 text-sm font-medium text-primary" data-testid="text-error">{error}</p>}
+          {(error || returnError) && <p role="alert" className="rounded-lg bg-primary/10 p-3 text-sm font-medium text-primary" data-testid="text-error">{error || returnError}</p>}
           <p className="text-xs text-muted-foreground">Enter a code without a name to simply watch a game in progress.</p>
           <p className="text-xs text-muted-foreground">90-second turns keep tables moving. Return using the same browser to recover your seat. Waiting-room seats are saved for five minutes away; running-game seats stay saved unless you resign.</p>
-          <p className="text-xs text-muted-foreground">Running tables pause and disappear from this list after five minutes with no players present. Enter your room code in the same browser to restore your saved seat with fresh deadlines. Watching alone does not resume a paused table.</p>
+          <p className="text-xs text-muted-foreground">Running tables pause and disappear from public discovery after five minutes with no players present. Find them in Your saved tables below and choose Return to restore your seat with fresh deadlines. Watching does not resume a paused table.</p>
         </div>
 
         <div className="panel p-6">
@@ -115,14 +146,15 @@ export default function Lobby() {
                   <p className="text-sm text-muted-foreground">Hosted by {r.hostName} / {r.players} of {r.maxPlayers} / {r.phase}</p>
                   <p className="text-xs text-muted-foreground">{r.connectedPlayers ?? 0} connected · {getToken(r.code) ? 'Saved session on this browser' : '90-second turns'}</p>
                 </div>
-                <button className="btn" disabled={join.isPending} onClick={() => (r.phase === 'lobby' ? doJoin(r.code) : nav(`/room/${r.code}`))} data-testid={`button-open-${r.code}`}>
-                  {getToken(r.code) ? 'Return' : r.phase === 'lobby' ? 'Join' : 'Watch'}
+                <button className="btn" disabled={join.isPending || !!returning} onClick={() => (getToken(r.code) ? void doReturn(r.code) : r.phase === 'lobby' ? doJoin(r.code) : watch(r.code))} data-testid={`button-open-${r.code}`}>
+                  {getToken(r.code) ? 'Return' : r.phase === 'lobby' && cleanName ? 'Join' : 'Watch'}
                 </button>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
+      <SavedTables returning={returning} error={returnError} onReturn={c => void doReturn(c)} onWatch={watch} />
     </main>
   );
 }

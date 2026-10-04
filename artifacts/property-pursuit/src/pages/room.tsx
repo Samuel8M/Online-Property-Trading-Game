@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'wouter';
+import { Link, useParams, useSearch } from 'wouter';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -25,8 +25,9 @@ import { errMsg, getToken, money, setToken } from '@/lib/session';
 export default function Room() {
   const params = useParams<{ code: string }>();
   const code = (params.code ?? '').toUpperCase();
+  const watching = new URLSearchParams(useSearch()).get('watch') === '1';
   const qc = useQueryClient();
-  const [token, setTok] = useState(getToken(code));
+  const [token, setTok] = useState(watching ? '' : getToken(code));
   const [name, setName] = useState('');
   const [err, setErr] = useState('');
   const [sel, setSel] = useState<number | null>(null);
@@ -35,8 +36,8 @@ export default function Room() {
   const [rules, setRules] = useState(false);
 
   const q = useGetGame(code, {
-    query: { queryKey: getGetGameQueryKey(code), refetchInterval: 1000 },
-    request: { headers: { 'X-Game-Token': token } },
+    query: { queryKey: watching ? [...getGetGameQueryKey(code), 'spectator'] : getGetGameQueryKey(code), refetchInterval: 1000 },
+    request: { headers: { 'X-Game-Token': watching ? '' : token } },
   });
   const join = useJoinGame();
   const start = useStartGame();
@@ -50,8 +51,8 @@ export default function Room() {
 
   const lastTurnRoll = useRef('');
   useEffect(() => {
-    setTok(getToken(code));
-  }, [code]);
+    setTok(watching ? '' : getToken(code));
+  }, [code, watching]);
   useEffect(() => {
     if (!game) return;
     const k = `${game.turnNumber}:${game.rollSerial ?? 0}:${game.lastRoll.join(',')}`;
@@ -65,12 +66,13 @@ export default function Room() {
     return undefined;
   }, [game?.turnNumber, game?.rollSerial, game?.lastRoll.join(',')]);
 
-  const setGame = (g: GameView) => { setErr(''); qc.setQueryData(getGetGameQueryKey(code), g); };
+  const setGame = (g: GameView) => { setErr(''); qc.setQueryData(watching ? [...getGetGameQueryKey(code), 'spectator'] : getGetGameQueryKey(code), g); };
   const act = (m: typeof start | typeof roll | typeof buy | typeof end) => {
     (m as typeof start).mutate({ code, data: { sessionToken: token } }, { onSuccess: setGame, onError: (e) => setErr(errMsg(e)) });
   };
   const doRoll = () => { setRolling(true); roll.mutate({ code, data: { sessionToken: token } }, { onSuccess: (g) => { setGame(g); setTimeout(() => setRolling(false), 700); }, onError: (e) => { setRolling(false); setErr(errMsg(e)); } }); };
   const doJoin = () => {
+    if (watching) return;
     join.mutate({ code, data: { playerName: name.trim(), sessionToken: token || undefined } }, {
       onSuccess: (r) => { setToken(code, r.sessionToken); setTok(r.sessionToken); setGame(r.game); },
       onError: (e) => setErr(errMsg(e)),
@@ -111,7 +113,7 @@ export default function Room() {
   const extraRoll = game.extraRoll && !cur?.jailed && !cur?.bankrupt;
   const leave = (method: 'pay' | 'card') => jail.mutate({ code, data: { sessionToken: token, method } }, { onSuccess: setGame, onError: e => setErr(errMsg(e)) });
   const link = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/room/${code}`;
-  const canJoin = !me && game.phase === 'lobby';
+  const canJoin = !watching && !me && game.phase === 'lobby';
 
   return (
     <main className="mx-auto min-h-[100dvh] max-w-[1400px] p-3 sm:p-6">
@@ -126,6 +128,7 @@ export default function Room() {
         </span>
       </header>
       {disconnected && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="connection-warning">Connection lost — reconnecting automatically. Your seat is saved, but the server timer keeps running. <button className="underline" onClick={() => q.refetch()}>Retry now</button></div>}
+      {watching && <div role="status" className="panel mb-4 p-3 text-sm" data-testid="watching-banner">You are watching without using your saved seat. <Link href="/" className="font-bold underline">Return to the lobby</Link> to join or recover a seat.</div>}
       {game.pausedAt != null && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="room-paused">This table is paused because all players were away for five minutes. Seats, assets, and unfinished decisions are saved. A player must return with the room code and their saved browser session to resume. Watching does not restart the timers.</div>}
       {game.pausedAt == null && game.resumedAt != null && clock.now - game.resumedAt < 90_000 && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="room-restored">This saved table has resumed. All seats and assets are preserved. Recovery grants a fresh 90-second turn or 30-second auction; outstanding debt must still be resolved before the turn timer runs.</div>}
 
