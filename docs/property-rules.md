@@ -81,6 +81,19 @@ Saved waiting rooms also retain their original board when started.
   blocked for everyone during the pause. Existing offers still undergo normal
   asset validation but cannot be accepted during debt resolution.
 - Once enough cash is raised, the debtor explicitly pays the full saved amount.
+  The debt panel and Your properties show a read-only liquidation estimate:
+  current cash + legal building-sale proceeds + available mortgage advances,
+  compared with the full saved debt (not a recalculated rent or repair charge).
+  It includes a sequence of highest-level, even sales, with each hotel first
+  returning to four houses and every level refunding half its build cost,
+  rounded down. Mortgages count only owned, not-already-mortgaged deeds, including
+  railroads and utilities; colored deeds unlock only after their entire group
+  has no buildings. Other owners' buildings can block sales and mortgages in
+  inherited groups. There is no limited bank house supply in this game.
+  The estimate refreshes with room state after each action and reload. It reports
+  whether liquidation can cover the debt and any remaining shortfall or surplus,
+  but never sells, mortgages, settles, or declares bankruptcy automatically.
+  The Pay button still requires actual cash, not estimated proceeds.
   Repeated or stale settlement requests cannot pay again: each debt has its own ID,
   checked under the same database row lock as every other room mutation.
 - The debtor may instead confirm permanent bankruptcy. All remaining cash, deeds

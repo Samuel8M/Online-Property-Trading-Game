@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test:timers": "node ./test-room-timers.mjs",
     "test:timers-api": "GAME_API_TEST=1 node ./test-room-timers.mjs",
+    "test:debt": "node ./test-game-debt.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "pino-http": "^10.5.0"
   },
   "devDependencies": {
+    "@workspace/game-rules": "workspace:*",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

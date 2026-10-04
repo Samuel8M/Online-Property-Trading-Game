@@ -16,6 +16,9 @@
   },
   "references": [
     {
+      "path": "../../lib/game-rules"
+    },
+    {
       "path": "../../lib/api-client-react"
     }
   ]

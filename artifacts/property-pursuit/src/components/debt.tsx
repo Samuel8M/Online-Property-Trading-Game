@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useResolveDebt, type GameView } from '@workspace/api-client-react';
 import { errMsg, money } from '@/lib/session';
+import { LiquidationSummary } from './liquidation';
 
 export function DebtPanel({ game, code, token, disabled, onGame, onError }: {
   game: GameView; code: string; token: string; disabled: boolean;
@@ -24,6 +25,7 @@ export function DebtPanel({ game, code, token, disabled, onGame, onError }: {
     <h3 className="display text-xl font-black">{mine ? 'Resolve your debt' : `${debtor.name} is raising cash`}</h3>
     <p><b>{money(debt.amount)}</b> owed to <b>{creditor?.name ?? 'the bank'}</b>.</p>
     <p className="text-sm">Cash: {money(debtor.cash)} · Still needed: {money(shortfall)}. No partial payment has been taken.</p>
+    <LiquidationSummary game={game} player={debtor} />
     <p className="text-xs text-muted-foreground">Turn timer paused. Rolling, buying, trading, and ending the turn are blocked until this debt is resolved.</p>
     {mine && <>
       <p className="text-sm">Use Your properties below to sell buildings or mortgage deeds, then pay the full debt.</p>

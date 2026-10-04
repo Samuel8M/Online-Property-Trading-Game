@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useManageProperty, useProposeTrade, useRespondTrade } from '@workspace/api-client-react';
 import type { GameSpace, GameTrade, GameView } from '@workspace/api-client-react';
 import { errMsg, money } from '@/lib/session';
+import { LiquidationSummary } from './liquidation';
 
 type Common = { game: GameView; code: string; token: string; onGame: (g: GameView) => void; onErr: (m: string) => void };
 
@@ -28,6 +29,7 @@ export function ManagePanel({ game, code, token, onGame, onErr }: Common) {
     <section className="panel p-5" data-testid="panel-manage">
       <h2 className="display mb-1 text-xl font-black">Your properties</h2>
       <p className="mb-3 text-xs text-muted-foreground">{inDebt ? 'Raise cash for your debt: sell evenly for half cost, or mortgage undeveloped deeds for half price.' : 'Build evenly, sell for half, mortgage for half price. Available before or after your roll.'}</p>
+      <div className="mb-3"><LiquidationSummary game={game} player={me} /></div>
       {owned.length === 0 && <p className="text-sm text-muted-foreground">You own nothing yet. Buy a space to begin.</p>}
       <ul className="space-y-2">
         {owned.map((s) => {
@@ -38,7 +40,7 @@ export function ManagePanel({ game, code, token, onGame, onErr }: Common) {
           const lv = grp.map((x) => x.buildingLevel);
           const cost = s.buildCost ?? 0;
           const canBuild = full && noMort && !s.mortgaged && s.buildCost != null && s.buildingLevel < 5 && s.buildingLevel === Math.min(...lv) && me.cash >= cost;
-          const canSell = colored && s.buildingLevel > 0 && s.buildingLevel === Math.max(...lv);
+          const canSell = colored && s.buildCost != null && s.buildingLevel > 0 && s.buildingLevel === Math.max(...lv);
           const canMort = !s.mortgaged && !groupBuilt(game, s);
           const canRedeem = s.mortgaged && me.cash >= redeemCost(s);
           const b = (label: string, action: 'build' | 'sell-building' | 'mortgage' | 'redeem', ok: boolean, why: string) => (

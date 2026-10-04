@@ -208,6 +208,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.6
+      '@workspace/game-rules':
+        specifier: workspace:*
+        version: link:../../lib/game-rules
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -523,6 +526,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/game-rules':
+        specifier: workspace:*
+        version: link:../../lib/game-rules
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -638,6 +644,8 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+
+  lib/game-rules: {}
 
   scripts:
     devDependencies:
