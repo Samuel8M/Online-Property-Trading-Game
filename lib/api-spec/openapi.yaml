@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: games
+    description: Shared multiplayer board games
 paths:
   /healthz:
     get:
@@ -24,6 +26,173 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /games:
+    get:
+      operationId: listGames
+      tags: [games]
+      summary: List public game rooms
+      responses:
+        "200":
+          description: Open public rooms
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameRoomList"
+    post:
+      operationId: createGame
+      tags: [games]
+      summary: Create a public room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameCreateInput"
+      responses:
+        "201":
+          description: Created room and host session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameJoinResult"
+  /games/{code}:
+    get:
+      operationId: getGame
+      tags: [games]
+      summary: Get the current room and board state
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, minLength: 4, maxLength: 8 }
+        - name: sessionToken
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current game state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "404":
+          description: Room not found
+  /games/{code}/players:
+    post:
+      operationId: joinGame
+      tags: [games]
+      summary: Join or reconnect to a public room
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, minLength: 4, maxLength: 8 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameJoinInput"
+      responses:
+        "200":
+          description: Joined room and player session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameJoinResult"
+  /games/{code}/start:
+    post:
+      operationId: startGame
+      tags: [games]
+      summary: Start a room when the host is ready
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionInput"
+      responses:
+        "200":
+          description: Game started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+  /games/{code}/roll:
+    post:
+      operationId: rollDice
+      tags: [games]
+      summary: Roll the dice for the active player
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionInput"
+      responses:
+        "200":
+          description: Dice rolled and landing resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+  /games/{code}/buy:
+    post:
+      operationId: buyProperty
+      tags: [games]
+      summary: Buy the unowned property under the active player
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionInput"
+      responses:
+        "200":
+          description: Property purchased
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+  /games/{code}/pass:
+    post:
+      operationId: endTurn
+      tags: [games]
+      summary: Pass on a property or end the active turn
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionInput"
+      responses:
+        "200":
+          description: Turn passed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +202,99 @@ components:
           type: string
       required:
         - status
+    GameRoomList:
+      type: object
+      required: [rooms]
+      properties:
+        rooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameRoomSummary"
+    GameRoomSummary:
+      type: object
+      required: [code, hostName, players, maxPlayers, phase, createdAt]
+      properties:
+        code: { type: string }
+        hostName: { type: string }
+        players: { type: integer }
+        maxPlayers: { type: integer }
+        phase: { type: string, enum: [lobby, playing, finished] }
+        createdAt: { type: integer }
+    GameJoinResult:
+      type: object
+      required: [game, sessionToken]
+      properties:
+        game:
+          $ref: "#/components/schemas/GameView"
+        sessionToken: { type: string }
+    GameView:
+      type: object
+      required: [code, phase, players, board, currentPlayerId, turnNumber, lastRoll, message, history, winnerPlayerId, myPlayerId, createdAt]
+      properties:
+        code: { type: string }
+        phase: { type: string, enum: [lobby, playing, finished] }
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/GamePlayer"
+        board:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameSpace"
+        currentPlayerId: { type: ["string", "null"] }
+        turnNumber: { type: integer }
+        lastRoll:
+          type: array
+          items: { type: integer }
+        message: { type: string }
+        history:
+          type: array
+          items: { type: string }
+        winnerPlayerId: { type: ["string", "null"] }
+        myPlayerId: { type: ["string", "null"] }
+        createdAt: { type: integer }
+    GamePlayer:
+      type: object
+      required: [id, name, color, cash, position, jailed, bankrupt, properties, isHost]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        color: { type: string }
+        cash: { type: integer }
+        position: { type: integer }
+        jailed: { type: boolean }
+        bankrupt: { type: boolean }
+        properties:
+          type: array
+          items: { type: integer }
+        isHost: { type: boolean }
+    GameSpace:
+      type: object
+      required: [id, name, type, price, rent, group, ownerPlayerId, color, description]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        type: { type: string, enum: [start, property, transit, tax, chance, rest, jail, go-to-jail] }
+        price: { type: ["integer", "null"] }
+        rent: { type: ["integer", "null"] }
+        group: { type: ["string", "null"] }
+        ownerPlayerId: { type: ["string", "null"] }
+        color: { type: string }
+        description: { type: string }
+    GameCreateInput:
+      type: object
+      required: [playerName]
+      properties:
+        playerName: { type: string, minLength: 1, maxLength: 18 }
+    GameJoinInput:
+      type: object
+      required: [playerName]
+      properties:
+        playerName: { type: string, minLength: 1, maxLength: 18 }
+        sessionToken: { type: string }
+    GameActionInput:
+      type: object
+      required: [sessionToken]
+      properties:
+        sessionToken: { type: string, minLength: 16 }
 

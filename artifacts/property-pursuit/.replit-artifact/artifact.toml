@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Property Pursuit"
+description = "A multiplayer property-trading board game for friends and visitors to play together in shared online rooms, with animated dice, buyable properties, rent, and turn-based play."
+version = "1.0.0"
+id = "artifacts/property-pursuit"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22077
+
+[services.development]
+run = "pnpm --filter @workspace/property-pursuit run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/property-pursuit", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/property-pursuit/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22077"
+BASE_PATH = "/"
