@@ -132,7 +132,6 @@ function activePlayer(game: StoredGame, token: string): GamePlayer {
 }
 function livePlayer(game: StoredGame, token: string): GamePlayer {
   if (game.auction) throw new GameError("Trades are paused during the property auction.");
-  if (game.debt) throw new GameError("Trades are paused while a debt is outstanding.");
   const player = playerFor(game, token);
   if (game.phase !== "playing") throw new GameError("The game is not in progress.");
   if (player.bankrupt) throw new GameError("Bankrupt players cannot manage assets or trade.");
@@ -728,10 +727,29 @@ function validateTrade(game: StoredGame, trade: GameTrade) {
   for (const [actual, snapshot] of [[offered, trade.offeredProperties], [requested, trade.requestedProperties]] as const) {
     if (actual.some((p, i) => p.mortgaged !== snapshot[i]!.mortgaged)) throw new GameError("A mortgage changed since this offer was made. Propose a new trade.");
   }
+  if (trade.debt) {
+    const debt = game.debt;
+    if (!debt || debt.id !== trade.debt.id || debt.debtorPlayerId !== proposer.id ||
+        debt.debtorPlayerId !== trade.debt.debtorPlayerId ||
+        debt.creditorPlayerId !== trade.debt.creditorPlayerId || debt.amount !== trade.debt.amount) {
+      throw new GameError("This debt offer no longer matches the outstanding debt.");
+    }
+    const gain = trade.requestedCash - trade.offeredCash;
+    if (gain <= 0) throw new GameError("A debt trade must increase the debtor's cash.");
+    // Deeds may leave only when the saved creditor is fully protected by cash.
+    // Incoming help can be partial, but cannot be used to gift away the estate.
+    if (offered.length && proposer.cash + gain < debt.amount) {
+      throw new GameError("Trading away deeds must leave enough cash to pay the full saved debt.");
+    }
+  }
   return { proposer, recipient };
 }
 export function proposeTrade(game: StoredGame, input: TradeProposalInput) {
-  const player = activePlayer(game, input.sessionToken);
+  const player = game.debt ? livePlayer(game, input.sessionToken) : activePlayer(game, input.sessionToken);
+  if (game.debt && game.debt.debtorPlayerId !== player.id) throw new GameError("Only the debtor may propose during debt recovery.", 403);
+  if ((game.debt && input.debtId !== game.debt.id) || (!game.debt && input.debtId)) {
+    throw new GameError("This debt is no longer outstanding. Refresh before proposing.");
+  }
   if (player.bankrupt) throw new GameError("Bankrupt players cannot trade.");
   if (game.trades.some(t => t.proposerPlayerId === player.id && t.status === "pending")) throw new GameError("Cancel your pending offer before proposing another.");
   if (input.offeredCash === 0 && input.requestedCash === 0 && !input.offeredPropertyIds.length && !input.requestedPropertyIds.length) throw new GameError("Offer or request at least one property or some cash.");
@@ -741,6 +759,7 @@ export function proposeTrade(game: StoredGame, input: TradeProposalInput) {
     offeredProperties: tradeAssets(game, input.offeredPropertyIds, player.id),
     requestedProperties: tradeAssets(game, input.requestedPropertyIds, input.recipientPlayerId),
     status: "pending", createdTurn: game.turnNumber,
+    ...(game.debt ? { debt: { ...game.debt } } : {}),
   };
   const { recipient } = validateTrade(game, trade);
   game.trades.unshift(trade);
@@ -758,6 +777,7 @@ export function respondTrade(game: StoredGame, input: TradeResponseInput) {
     if (trade.recipientPlayerId !== player.id) throw new GameError("Only the recipient can respond to this offer.", 403);
     if (input.action === "reject") trade.status = "rejected";
     else {
+      if (game.debt && !trade.debt) throw new GameError("Ordinary trades are paused while a debt is outstanding.");
       const { proposer, recipient } = validateTrade(game, trade);
       proposer.cash += trade.requestedCash - trade.offeredCash;
       recipient.cash += trade.offeredCash - trade.requestedCash;

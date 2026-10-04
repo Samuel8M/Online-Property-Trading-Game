@@ -26,9 +26,9 @@ export function DebtPanel({ game, code, token, disabled, onGame, onError }: {
     <p><b>{money(debt.amount)}</b> owed to <b>{creditor?.name ?? 'the bank'}</b>.</p>
     <p className="text-sm">Cash: {money(debtor.cash)} · Still needed: {money(shortfall)}. No partial payment has been taken.</p>
     <LiquidationSummary game={game} player={debtor} />
-    <p className="text-xs text-muted-foreground">Turn timer paused. Rolling, buying, trading, and ending the turn are blocked until this debt is resolved.</p>
+    <p className="text-xs text-muted-foreground">Turn timer paused. Rolling, buying, ordinary trading, and ending the turn are blocked. The debtor may propose cash-raising debt trades below.</p>
     {mine && <>
-      <p className="text-sm">Use Your properties below to sell buildings or mortgage deeds, then pay the full debt.</p>
+      <p className="text-sm">Use Your properties to sell buildings or mortgage deeds, or Trades to negotiate cash help. Giving up deeds in a trade must leave enough cash to pay the full debt.</p>
       <button className="btn btn-primary w-full" disabled={disabled || mutation.isPending || shortfall > 0} onClick={() => run('settle')} data-testid="button-settle-debt">
         {mutation.isPending ? 'Resolving…' : `Pay ${money(debt.amount)}`}
       </button>

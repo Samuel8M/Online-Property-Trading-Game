@@ -98,8 +98,9 @@ export function TradePanel({ game, code, token, onGame, onErr, myTurn }: Common 
   const hasOutgoing = game.trades.some((t) => t.status === 'pending' && t.proposerPlayerId === me?.id);
 
   if (game.phase === 'lobby' && !game.trades.length) return null;
-  const canAct = !!me && !me.bankrupt && game.phase === 'playing' && !game.debt;
-  const canPropose = canAct && myTurn;
+  const canAct = !!me && !me.bankrupt && game.phase === 'playing' && !game.auction;
+  const debtor = game.debt?.debtorPlayerId === me?.id;
+  const canPropose = canAct && (game.debt ? debtor : myTurn);
   const nm = (id: string) => game.players.find((p) => p.id === id)?.name ?? 'Player';
   const toggle = (set: (f: (a: number[]) => number[]) => void, id: number) => set((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
 
@@ -111,12 +112,14 @@ export function TradePanel({ game, code, token, onGame, onErr, myTurn }: Common 
   else if (offIds.length !== offP.length || reqIds.length !== reqP.length) problem = 'A selected property is no longer tradable. Close this form and start a new offer.';
   else if (oc > me.cash) problem = `You only have ${money(me.cash)}.`;
   else if (rc > target.cash) problem = `${target.name} only has ${money(target.cash)}.`;
+  else if (game.debt && rc <= oc) problem = 'A debt trade must increase your cash.';
+  else if (game.debt && offIds.length > 0 && me.cash + rc - oc < game.debt.amount) problem = `Giving up deeds must leave ${money(game.debt.amount)} to pay the full debt.`;
   else if (oc + rc + offIds.length + reqIds.length === 0 || (oc + offIds.length === 0 && rc + reqIds.length === 0)) problem = 'Offer or ask for something.';
 
   const reset = () => { setTo(''); setOffC('0'); setReqC('0'); setOffP([]); setReqP([]); setOpen(false); };
   const send = () => {
     if (problem || !target) return;
-    propose.mutate({ code, data: { sessionToken: token, recipientPlayerId: target.id, offeredCash: oc, requestedCash: rc, offeredPropertyIds: offIds, requestedPropertyIds: reqIds } }, {
+    propose.mutate({ code, data: { sessionToken: token, recipientPlayerId: target.id, offeredCash: oc, requestedCash: rc, offeredPropertyIds: offIds, requestedPropertyIds: reqIds, ...(game.debt ? { debtId: game.debt.id } : {}) } }, {
       onSuccess: (g) => { onGame(g); reset(); },
       onError: (e) => onErr(errMsg(e)),
     });
@@ -144,6 +147,12 @@ export function TradePanel({ game, code, token, onGame, onErr, myTurn }: Common 
   const resolved = game.trades.filter((t) => t.status !== 'pending').slice(0, 8);
   const row = (t: GameTrade) => {
     const mine = t.proposerPlayerId === me?.id, forMe = t.recipientPlayerId === me?.id;
+    const matchesDebt = !!t.debt && !!game.debt && t.debt.id === game.debt.id &&
+      t.debt.debtorPlayerId === game.debt.debtorPlayerId && t.debt.creditorPlayerId === game.debt.creditorPlayerId && t.debt.amount === game.debt.amount;
+    const proposerCash = game.players.find(p => p.id === t.proposerPlayerId)?.cash ?? 0;
+    const canAccept = t.debt
+      ? matchesDebt && t.requestedCash > t.offeredCash && (!t.offeredProperties.length || proposerCash + t.requestedCash - t.offeredCash >= t.debt.amount)
+      : !game.debt;
     return (
       <li key={t.id} className={`rounded-xl border-2 p-2 ${t.status === 'pending' ? 'border-ink bg-accent/30' : 'border-border opacity-80'}`} data-testid={`row-trade-${t.id}`}>
         <div className="mb-1 flex items-center justify-between text-xs">
@@ -154,9 +163,10 @@ export function TradePanel({ game, code, token, onGame, onErr, myTurn }: Common 
           <div><p className="text-[10px] font-bold uppercase text-muted-foreground">{nm(t.proposerPlayerId)} gives</p>{side(t.offeredCash, t.offeredProperties)}</div>
           <div><p className="text-[10px] font-bold uppercase text-muted-foreground">{nm(t.recipientPlayerId)} gives</p>{side(t.requestedCash, t.requestedProperties)}</div>
         </div>
+        {t.debt && <p className="mt-1 text-xs font-bold">Debt recovery · saved debt {money(t.debt.amount)} to {t.debt.creditorPlayerId ? nm(t.debt.creditorPlayerId) : 'the bank'}. Payment remains the debtor's choice.</p>}
         {canAct && t.status === 'pending' && (forMe || mine) && (
           <div className="mt-2 flex gap-2">
-            {forMe && <button className="btn btn-gold !py-1 text-xs" disabled={respond.isPending} onClick={() => answer(t, 'accept')} data-testid={`button-accept-${t.id}`}>{busyId === t.id + 'accept' ? '...' : 'Accept'}</button>}
+            {forMe && <button className="btn btn-gold !py-1 text-xs" disabled={respond.isPending || !canAccept} title={!canAccept ? 'Offer is paused or no longer covers the saved debt.' : undefined} onClick={() => answer(t, 'accept')} data-testid={`button-accept-${t.id}`}>{busyId === t.id + 'accept' ? '...' : 'Accept'}</button>}
             {forMe && <button className="btn !py-1 text-xs" disabled={respond.isPending} onClick={() => answer(t, 'reject')} data-testid={`button-reject-${t.id}`}>Reject</button>}
             {mine && <button className="btn !py-1 text-xs" disabled={respond.isPending} onClick={() => answer(t, 'cancel')} data-testid={`button-cancel-${t.id}`}>Cancel offer</button>}
           </div>
@@ -183,7 +193,7 @@ export function TradePanel({ game, code, token, onGame, onErr, myTurn }: Common 
   return (
     <section className="panel p-5" data-testid="panel-trades">
       <h2 className="display mb-2 text-xl font-black">Trades</h2>
-      {game.debt && <p className="mb-3 text-sm text-muted-foreground">Trades are paused until the debt is resolved.</p>}
+      {game.debt && <p className="mb-3 text-sm text-muted-foreground">Only the debtor may propose cash-raising offers. Giving up deeds must leave enough cash to pay the full saved debt. Incoming cash-only help may be partial. Ordinary offers are paused; you can still reject or cancel them.</p>}
       {canPropose && !open && (
         <button className="btn btn-primary mb-3 w-full" disabled={hasOutgoing || targets.length === 0} onClick={() => setOpen(true)} data-testid="button-new-trade">
           {hasOutgoing ? 'Offer pending' : 'Propose a trade'}

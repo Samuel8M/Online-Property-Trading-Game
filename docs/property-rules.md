@@ -77,9 +77,9 @@ Saved waiting rooms also retain their original board when started.
   cash enter a debt-resolution pause instead of causing automatic bankruptcy.
   No partial payment is taken. The full amount and creditor (or bank) are saved.
 - Only the debtor can sell buildings evenly or mortgage undeveloped deeds.
-  Building, redeeming, buying, rolling, passing, trading and seat resignation are
-  blocked for everyone during the pause. Existing offers still undergo normal
-  asset validation but cannot be accepted during debt resolution.
+  Building, redeeming, buying, rolling, passing and seat resignation are blocked
+  for everyone during the pause. Ordinary offers still undergo asset validation
+  but cannot be accepted; participants may reject or cancel them.
 - Once enough cash is raised, the debtor explicitly pays the full saved amount.
   The debt panel and Your properties show a read-only liquidation estimate:
   current cash + legal building-sale proceeds + available mortgage advances,
@@ -115,6 +115,23 @@ Saved waiting rooms also retain their original board when started.
 - The active player may propose one pending outgoing offer to another live player.
   An offer contains cash and/or property IDs on either side; at least one side
   must offer something. Cash is nonnegative whole dollars.
+- During a debt pause only the saved debtor may propose, including off-turn.
+  The request must name the current debt ID. The server attaches its saved ID,
+  debtor, creditor and full amount to the offer; clients cannot choose a different
+  obligation. These offers must strictly increase the debtor's net cash.
+  If any debtor deeds leave, post-trade cash must cover the entire saved amount.
+  This deliberately disallows partial deed sales below full cash coverage,
+  underpriced estate gifting and property-only swaps while insolvent.
+  Incoming cash help with no outgoing deeds may be partial. Offered cash must
+  still be affordable independently; requested incoming deeds follow normal rules.
+  Trading with the creditor is allowed, but cash paid for deeds does not forgive
+  or net off the obligation. Acceptance never settles debt automatically.
+- Debt offers recheck that exact obligation and coverage at acceptance and during
+  reconciliation. Settlement, bankruptcy or a different queued debt invalidates
+  pending debt offers; they never become ordinary offers. Pre-debt ordinary
+  offers remain paused and can resume after resolution if still valid.
+  Acceptance, settlement and bankruptcy use the same room row lock, so concurrent
+  requests cannot transfer the same estate twice or pay a debt twice.
 - A property cannot be traded while any property in its colored group has buildings.
   Stations and mortgaged, undeveloped properties may be traded.
 - Mortgages stay attached with no transfer fee. The recipient owes the normal

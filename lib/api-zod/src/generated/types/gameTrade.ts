@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GameDebt } from './gameDebt';
 import type { GameTradeStatus } from './gameTradeStatus';
 import type { TradeProperty } from './tradeProperty';
 
@@ -18,4 +19,6 @@ export interface GameTrade {
   requestedProperties: TradeProperty[];
   status: GameTradeStatus;
   createdTurn: number;
+  /** Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt. */
+  debt?: GameDebt;
 }

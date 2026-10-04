@@ -1,6 +1,6 @@
 ---
 name: Debt recovery policy
-description: Why debt recovery pauses turn expiry and excludes trading
+description: Why debt recovery pauses turn expiry and restricts estate transfers
 ---
 
 Debt recovery prioritizes an explicit debtor choice over automatic turn progression.
@@ -9,8 +9,8 @@ Debt recovery prioritizes an explicit debtor choice over automatic turn progress
 
 **How to apply:** Any future offline-debtor policy needs an explicit product decision; do not silently reuse the normal turn timeout to settle, forgive, or bankrupt a saved debt.
 
-Trading during debt recovery is intentionally outside the accepted recovery scope.
+Debt recovery permits narrowly authorized cash-raising trades, not ordinary trading.
 
-**Why:** The requested cash-raising options are building sales and mortgages. Existing trades reserve nothing, so enabling them without debt-aware validation would allow the debtor to transfer assets away from the saved creditor.
+**Why:** Trades reserve nothing. Protecting the creditor's saved claim takes priority over allowing incremental deed sales: a deed must not leave an insolvent estate unless actual post-trade cash covers the full obligation. A liquidation estimate or negotiated property valuation is not secured payment.
 
-**How to apply:** A future debt-trading feature must protect the saved obligation and creditor, authorize off-turn debtors explicitly, and serialize acceptance with settlement and bankruptcy.
+**How to apply:** Keep debt offers tied to the saved obligation, permit only its debtor to propose (even off-turn), require positive net cash, and fully cash-cover debt whenever debtor deeds leave. Incoming cash help can be partial. Ordinary offers stay paused. Acceptance never implicitly settles, and must serialize with explicit settlement/bankruptcy. Changing this conservative estate-protection policy is a rule extension, not a validation cleanup.

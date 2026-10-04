@@ -8,7 +8,9 @@ import { fileURLToPath } from "node:url";
 // Keep shared workspace TypeScript bundled for native Node execution.
 const dir = await mkdtemp(join(tmpdir(), "game-debt-tests-"));
 try {
-  const files = await Promise.all(["game-debt.test", "game-engine.test"].map(async name => {
+  const tests = ["game-debt.test", "game-engine.test", "debt-trades.test"];
+  if (process.env.GAME_API_TEST === "1") tests.push("debt-api.integration.test", "debt-trades-api.integration.test");
+  const files = await Promise.all(tests.map(async name => {
     const outfile = join(dir, `${name}.cjs`);
     await build({
       entryPoints: [fileURLToPath(new URL(`./src/lib/${name}.ts`, import.meta.url))],

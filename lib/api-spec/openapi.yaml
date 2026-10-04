@@ -542,6 +542,9 @@ components:
             $ref: "#/components/schemas/TradeProperty"
         status: { type: string, enum: [pending, accepted, rejected, cancelled, invalidated] }
         createdTurn: { type: integer }
+        debt:
+          description: Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.
+          $ref: "#/components/schemas/GameDebt"
     TradeProperty:
       type: object
       required: [spaceId, mortgaged]
@@ -560,6 +563,10 @@ components:
       required: [sessionToken, recipientPlayerId, offeredCash, requestedCash, offeredPropertyIds, requestedPropertyIds]
       properties:
         sessionToken: { type: string, minLength: 16 }
+        debtId:
+          type: string
+          minLength: 1
+          description: Required during debt recovery; only that debtor may propose. Net cash must increase, and outgoing deeds require enough post-trade cash to pay the full debt.
         recipientPlayerId: { type: string, minLength: 1 }
         offeredCash: { type: integer, minimum: 0, maximum: 1000000 }
         requestedCash: { type: integer, minimum: 0, maximum: 1000000 }

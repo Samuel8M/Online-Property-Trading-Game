@@ -118,18 +118,6 @@ export const GameTradeStatus = {
   invalidated: 'invalidated',
 } as const;
 
-export interface GameTrade {
-  id: string;
-  proposerPlayerId: string;
-  recipientPlayerId: string;
-  offeredCash: number;
-  requestedCash: number;
-  offeredProperties: TradeProperty[];
-  requestedProperties: TradeProperty[];
-  status: GameTradeStatus;
-  createdTurn: number;
-}
-
 export interface GameDebt {
   id: string;
   debtorPlayerId: string;
@@ -143,6 +131,20 @@ export interface GameDebt {
      * @minimum 1
      */
   amount: number;
+}
+
+export interface GameTrade {
+  id: string;
+  proposerPlayerId: string;
+  recipientPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredProperties: TradeProperty[];
+  requestedProperties: TradeProperty[];
+  status: GameTradeStatus;
+  createdTurn: number;
+  /** Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt. */
+  debt?: GameDebt;
 }
 
 export interface GameAuction {
@@ -252,6 +254,11 @@ export interface PropertyManagementInput {
 export interface TradeProposalInput {
   /** @minLength 16 */
   sessionToken: string;
+  /**
+     * Required during debt recovery; only that debtor may propose. Net cash must increase, and outgoing deeds require enough post-trade cash to pay the full debt.
+     * @minLength 1
+     */
+  debtId?: string;
   /** @minLength 1 */
   recipientPlayerId: string;
   /**

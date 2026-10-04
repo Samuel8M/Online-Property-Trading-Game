@@ -48,6 +48,7 @@ export const createGameResponseGameBoardItemBuildingLevelMin = 0;
 export const createGameResponseGameBoardItemBuildingLevelMax = 5;
 
 
+
 export const createGameResponseGameAuctionOneHighestBidMin = 0;
 
 
@@ -104,7 +105,13 @@ export const CreateGameResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -157,6 +164,7 @@ export const GetGameParams = zod.object({
 
 export const getGameResponseBoardItemBuildingLevelMin = 0;
 export const getGameResponseBoardItemBuildingLevelMax = 5;
+
 
 
 export const getGameResponseAuctionOneHighestBidMin = 0;
@@ -214,7 +222,13 @@ export const GetGameResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -268,6 +282,7 @@ export const ResignGameBody = zod.object({
 
 export const resignGameResponseBoardItemBuildingLevelMin = 0;
 export const resignGameResponseBoardItemBuildingLevelMax = 5;
+
 
 
 export const resignGameResponseAuctionOneHighestBidMin = 0;
@@ -325,7 +340,13 @@ export const ResignGameResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -387,6 +408,7 @@ export const joinGameResponseGameBoardItemBuildingLevelMin = 0;
 export const joinGameResponseGameBoardItemBuildingLevelMax = 5;
 
 
+
 export const joinGameResponseGameAuctionOneHighestBidMin = 0;
 
 
@@ -443,7 +465,13 @@ export const JoinGameResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -501,6 +529,7 @@ export const startGameResponseBoardItemBuildingLevelMin = 0;
 export const startGameResponseBoardItemBuildingLevelMax = 5;
 
 
+
 export const startGameResponseAuctionOneHighestBidMin = 0;
 
 
@@ -556,7 +585,13 @@ export const StartGameResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -610,6 +645,7 @@ export const RollDiceBody = zod.object({
 
 export const rollDiceResponseBoardItemBuildingLevelMin = 0;
 export const rollDiceResponseBoardItemBuildingLevelMax = 5;
+
 
 
 export const rollDiceResponseAuctionOneHighestBidMin = 0;
@@ -667,7 +703,13 @@ export const RollDiceResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -721,6 +763,7 @@ export const BuyPropertyBody = zod.object({
 
 export const buyPropertyResponseBoardItemBuildingLevelMin = 0;
 export const buyPropertyResponseBoardItemBuildingLevelMax = 5;
+
 
 
 export const buyPropertyResponseAuctionOneHighestBidMin = 0;
@@ -778,7 +821,13 @@ export const BuyPropertyResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -833,6 +882,7 @@ export const LeaveJailBody = zod.object({
 
 export const leaveJailResponseBoardItemBuildingLevelMin = 0;
 export const leaveJailResponseBoardItemBuildingLevelMax = 5;
+
 
 
 export const leaveJailResponseAuctionOneHighestBidMin = 0;
@@ -890,7 +940,13 @@ export const LeaveJailResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -948,6 +1004,7 @@ export const resolveDebtResponseBoardItemBuildingLevelMin = 0;
 export const resolveDebtResponseBoardItemBuildingLevelMax = 5;
 
 
+
 export const resolveDebtResponseAuctionOneHighestBidMin = 0;
 
 
@@ -1003,7 +1060,13 @@ export const ResolveDebtResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -1057,6 +1120,7 @@ export const EndTurnBody = zod.object({
 
 export const endTurnResponseBoardItemBuildingLevelMin = 0;
 export const endTurnResponseBoardItemBuildingLevelMax = 5;
+
 
 
 export const endTurnResponseAuctionOneHighestBidMin = 0;
@@ -1114,7 +1178,13 @@ export const EndTurnResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -1177,6 +1247,7 @@ export const respondAuctionResponseBoardItemBuildingLevelMin = 0;
 export const respondAuctionResponseBoardItemBuildingLevelMax = 5;
 
 
+
 export const respondAuctionResponseAuctionOneHighestBidMin = 0;
 
 
@@ -1232,7 +1303,13 @@ export const RespondAuctionResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -1293,6 +1370,7 @@ export const managePropertyResponseBoardItemBuildingLevelMin = 0;
 export const managePropertyResponseBoardItemBuildingLevelMax = 5;
 
 
+
 export const managePropertyResponseAuctionOneHighestBidMin = 0;
 
 
@@ -1348,7 +1426,13 @@ export const ManagePropertyResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -1395,6 +1479,7 @@ export const ProposeTradeParams = zod.object({
 export const proposeTradeBodySessionTokenMin = 16;
 
 
+
 export const proposeTradeBodyOfferedCashMin = 0;
 export const proposeTradeBodyOfferedCashMax = 1000000;
 
@@ -1415,6 +1500,7 @@ export const proposeTradeBodyRequestedPropertyIdsMax = 40;
 
 export const ProposeTradeBody = zod.object({
   "sessionToken": zod.string().min(proposeTradeBodySessionTokenMin),
+  "debtId": zod.string().min(1).optional().describe('Required during debt recovery; only that debtor may propose. Net cash must increase, and outgoing deeds require enough post-trade cash to pay the full debt.'),
   "recipientPlayerId": zod.string().min(1),
   "offeredCash": zod.number().int().min(proposeTradeBodyOfferedCashMin).max(proposeTradeBodyOfferedCashMax),
   "requestedCash": zod.number().int().min(proposeTradeBodyRequestedCashMin).max(proposeTradeBodyRequestedCashMax),
@@ -1424,6 +1510,7 @@ export const ProposeTradeBody = zod.object({
 
 export const proposeTradeResponseBoardItemBuildingLevelMin = 0;
 export const proposeTradeResponseBoardItemBuildingLevelMax = 5;
+
 
 
 export const proposeTradeResponseAuctionOneHighestBidMin = 0;
@@ -1481,7 +1568,13 @@ export const ProposeTradeResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),
@@ -1540,6 +1633,7 @@ export const respondTradeResponseBoardItemBuildingLevelMin = 0;
 export const respondTradeResponseBoardItemBuildingLevelMax = 5;
 
 
+
 export const respondTradeResponseAuctionOneHighestBidMin = 0;
 
 
@@ -1595,7 +1689,13 @@ export const RespondTradeResponse = zod.object({
   "mortgaged": zod.boolean()
 })),
   "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
-  "createdTurn": zod.number().int()
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
 })),
   "currentPlayerId": zod.string().nullable(),
   "turnNumber": zod.number().int(),

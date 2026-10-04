@@ -9,6 +9,11 @@
 export interface TradeProposalInput {
   /** @minLength 16 */
   sessionToken: string;
+  /**
+     * Required during debt recovery; only that debtor may propose. Net cash must increase, and outgoing deeds require enough post-trade cash to pay the full debt.
+     * @minLength 1
+     */
+  debtId?: string;
   /** @minLength 1 */
   recipientPlayerId: string;
   /**

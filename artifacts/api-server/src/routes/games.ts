@@ -167,6 +167,8 @@ router.post("/games/:code/trades", async (req, res): Promise<void> => {
 });
 router.post("/games/:code/trades/respond", async (req, res): Promise<void> => {
   const input = bodyOf<TradeResponseInput>(RespondTradeBody, req.body);
+  // Acceptance shares the room row lock with debt settlement/bankruptcy.
+  // Debt snapshots and cash coverage are rechecked inside that lock, not here.
   const game = await mutate(codeOf(req), g => respondTrade(g, input), input.sessionToken);
   res.json(GetGameResponse.parse(view(game, input.sessionToken)));
 });
