@@ -24,22 +24,24 @@ export function Tile({ space, players, selected, onSelect, boardSize = 40 }: {
   return (
     <button
       onClick={onSelect}
+      aria-label={space.name}
+      title={space.name}
       data-testid={`tile-${space.id}`}
       style={{ gridRow: row, gridColumn: col, boxShadow: owner ? `inset 0 0 0 3px ${owner.color}` : undefined }}
-      className={`relative flex flex-col overflow-hidden rounded-md border border-ink/70 bg-paper text-left transition-transform hover:z-10 hover:scale-110 ${selected ? 'z-10 scale-110 ring-4 ring-brass' : ''}`}
+      className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-sm border border-ink/70 bg-paper text-left transition-transform hover:z-10 hover:scale-110 sm:rounded-md ${selected ? 'z-10 scale-110 ring-4 ring-brass' : ''}`}
     >
       {isProp && <span className="h-[22%] w-full shrink-0 border-b border-ink/60" style={{ background: space.color }} />}
       {!isProp && <span className="h-[10%] w-full shrink-0" style={{ background: space.color }} />}
       <span className="flex flex-1 flex-col items-center justify-center px-0.5 text-center leading-[1.05]">
-        {!isProp && <span className="display text-[9px] font-black text-primary sm:text-xs">{GLYPH[space.type]}</span>}
-         <span className="max-w-full break-words text-[7px] font-bold sm:text-[10px]" style={{ overflowWrap: 'anywhere' }}>{space.name}</span>
-        {space.price != null && <span className="font-mono text-[7px] text-muted-foreground sm:text-[9px]">{money(space.price)}</span>}
+        {!isProp && <span className="display font-black text-primary" style={{ fontSize: 'clamp(5px, 1.3cqw, 12px)' }}>{GLYPH[space.type]}</span>}
+         <span className="max-w-full break-words font-bold" style={{ overflowWrap: 'anywhere', fontSize: 'clamp(5px, 1.12cqw, 10px)' }}>{space.name}</span>
+        {space.price != null && <span className="font-mono text-muted-foreground" style={{ fontSize: 'clamp(4px, 1cqw, 9px)' }}>{money(space.price)}</span>}
       </span>
       {here.length > 0 && (
         <span className="absolute bottom-0.5 left-0.5 right-0.5 flex flex-wrap justify-center gap-0.5">
           {here.map((p) => (
             <motion.span key={p.id} layoutId={`token-${p.id}`} transition={{ type: 'spring', stiffness: 220, damping: 20 }}
-              className="h-3 w-3 rounded-full border-2 border-ink shadow sm:h-4 sm:w-4" style={{ background: p.color }} title={p.name} />
+              className="rounded-full border border-ink shadow" style={{ background: p.color, width: 'clamp(5px, 1.8cqw, 16px)', height: 'clamp(5px, 1.8cqw, 16px)' }} title={p.name} />
           ))}
         </span>
       )}

@@ -43,7 +43,7 @@ Public room discovery, create/join/watch, invite links, animated dice, property 
 
 ## User preferences
 
-The user wants anyone visiting the webpage to be able to play, with dice visuals and a polished game experience. They explicitly want Monopoly—not a shortened property-trading substitute—with the full board, trading, and extra rolls for doubles. Do not simplify that scope again.
+The user wants anyone visiting the webpage to be able to play, with dice visuals and a polished game experience. They explicitly want Monopoly—not a shortened property-trading substitute—with the full board, trading, and extra rolls for doubles. Do not simplify that scope again. The screen must show the whole board, rather than requiring horizontal scrolling to see it.
 
 ## Gotchas
 

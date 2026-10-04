@@ -132,22 +132,22 @@ export default function Room() {
       </AnimatePresence>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="mx-auto min-w-0 w-full max-w-[860px] rounded-3xl border-2 border-ink bg-felt p-2 shadow-[8px_8px_0_hsl(var(--foreground))] sm:p-3">
-          <p className="mb-2 text-center text-xs font-bold text-paper sm:hidden">Swipe across the board · Tap a space for details</p>
-          <div className="overflow-x-auto">
-          <div className="grid aspect-square w-full gap-[3px]" style={{ minWidth: game.board.length === 40 ? 620 : undefined, gridTemplateColumns: `repeat(${side}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${side}, minmax(0, 1fr))` }}>
+        <div className="mx-auto min-w-0 w-full self-start rounded-3xl border-2 border-ink bg-felt p-1 shadow-[5px_5px_0_hsl(var(--foreground))] sm:p-3" style={{ maxWidth: 'min(860px, calc(100dvh - 180px))' }}>
+          <div>
+          <div className="@container grid aspect-square w-full" style={{ containerType: 'inline-size', gap: 'clamp(1px, 0.35vw, 3px)', gridTemplateColumns: `repeat(${side}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${side}, minmax(0, 1fr))` }}>
             {game.board.map((s) => (
               <Tile key={s.id} space={s} players={game.players} boardSize={game.board.length} selected={sel === s.id} onSelect={() => setSel(sel === s.id ? null : s.id)} />
             ))}
-            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-background/95 p-2 text-center" style={{ gridArea: `2 / 2 / ${side} / ${side}` }}>
+            <div className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-3 rounded-xl bg-background/95 p-2 text-center [&_.die]:h-[clamp(28px,10cqw,80px)] [&_.die]:w-[clamp(28px,10cqw,80px)]" style={{ gridArea: `2 / 2 / ${side} / ${side}` }}>
               <DicePair roll={game.lastRoll} rolling={rolling} />
               <AnimatePresence mode="wait">
                 <motion.p key={game.message} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   className="display max-w-sm text-sm font-black leading-tight sm:text-xl" data-testid="text-message">{game.message}</motion.p>
               </AnimatePresence>
-              {shown && <div className="hidden w-full justify-center sm:flex"><TileDetail space={shown} players={game.players} /></div>}
+              {shown && <div className="hidden w-full justify-center @[520px]:flex"><TileDetail space={shown} players={game.players} /></div>}
             </div>
           </div>
+          <p className="mt-1 text-center text-[10px] font-bold text-paper sm:hidden">Whole board · Tap a space for details</p>
           </div>
         </div>
 
