@@ -17,6 +17,7 @@ import { Tile, TileDetail } from '@/components/board';
 import { ManagePanel, TradePanel } from '@/components/manage';
 import { DebtPanel } from '@/components/debt';
 import { AuctionPanel } from '@/components/auction';
+import { AuctionAlerts } from '@/components/auction-alerts';
 import { DicePair } from '@/components/dice';
 import { ExitSeat, TurnTimer, useRoomClock } from '@/components/room-lifecycle';
 import { errMsg, getToken, money, setToken } from '@/lib/session';
@@ -49,9 +50,7 @@ export default function Room() {
 
   const lastTurnRoll = useRef('');
   useEffect(() => {
-    document.title = `Table ${code} · Monopoly Online`;
     setTok(getToken(code));
-    return () => { document.title = 'Monopoly Online'; };
   }, [code]);
   useEffect(() => {
     if (!game) return;
@@ -121,6 +120,8 @@ export default function Room() {
         <span className="ml-auto flex flex-wrap gap-2">
           <button className="btn btn-gold !py-1.5 font-mono" onClick={() => copy('code', code)} data-testid="button-copy-code">{copied === 'code' ? 'Copied' : `Code ${code}`}</button>
           <button className="btn !py-1.5" onClick={() => copy('link', link)} data-testid="button-copy-link">{copied === 'link' ? 'Copied' : 'Copy invite link'}</button>
+          <AuctionAlerts code={code} auctionId={game.auction?.id}
+            propertyName={game.board.find(space => space.id === game.auction?.spaceId)?.name ?? 'Property'} />
           <button className="btn !py-1.5" onClick={() => setRules((r) => !r)} data-testid="button-rules">{rules ? 'Hide rules' : 'Rules'}</button>
         </span>
       </header>

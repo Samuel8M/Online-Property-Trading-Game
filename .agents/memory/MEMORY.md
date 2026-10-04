@@ -3,3 +3,4 @@
 - [Debt recovery policy](debt-recovery-policy.md) — explicit resolution and full cash coverage on outgoing debt-trade deeds protect the saved creditor.
 - [Auction participation](auction-policy.md) — explicit declines and voluntary bids; binding bids require protection against intervening cash changes.
 - [Workspace test runtime](test-runtime.md) — bundle shared TypeScript workspace dependencies for executable API tests; native Node resolution is insufficient.
+- [Browser sound consent](browser-sound-consent.md) — a saved sound preference is not autoplay permission; require explicit activation again after reload.
