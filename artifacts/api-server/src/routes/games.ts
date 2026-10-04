@@ -4,31 +4,67 @@ import { pool } from "@workspace/db";
 import {
   CreateGameBody, CreateGameResponse, GetGameParams, GetGameResponse,
   JoinGameBody, JoinGameResponse, StartGameBody, RollDiceBody, BuyPropertyBody,
-  EndTurnBody, ListGamesResponse, LeaveJailBody,
+  EndTurnBody, ListGamesResponse, LeaveJailBody, ResignGameBody,
   ManagePropertyBody, ProposeTradeBody, RespondTradeBody,
   type PropertyManagementInput, type TradeProposalInput, type TradeResponseInput,
 } from "@workspace/api-zod";
 import {
   addPlayer, createRoom, view, start, roll, buy, end, leaveJail, GameError, type StoredGame,
   normalizeGame, manageProperty, proposeTrade, respondTrade, reconcileTrades,
+  reconcileLifecycle, touchPresence, resign,
 } from "../lib/game-engine";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 const creationTimes = new Map<string, number[]>();
-async function mutate(code: string, fn: (game: StoredGame) => void): Promise<StoredGame> {
+async function mutate(code: string, fn: (game: StoredGame) => void, token?: string): Promise<StoredGame> {
   const client = await pool.connect();
+  let actionError: GameError | undefined;
+  let saved: StoredGame;
   try {
     await client.query("BEGIN");
     const result = await client.query("SELECT state FROM game_rooms WHERE code = $1 FOR UPDATE", [code.toUpperCase()]);
     if (!result.rows[0]) throw new GameError("That room does not exist. Check the code and try again.", 404);
-    const game = normalizeGame(result.rows[0].state as StoredGame);
-    fn(game); reconcileTrades(game); normalizeGame(game);
-    await client.query("UPDATE game_rooms SET state = $1, updated_at = NOW() WHERE code = $2", [JSON.stringify(game), game.code]);
+    const original = JSON.stringify(result.rows[0].state);
+    let game = result.rows[0].state as StoredGame;
+    const now = Date.now();
+    reconcileLifecycle(game, now);
+    touchPresence(game, token, now);
+    const reconciled = structuredClone(game);
+    try { fn(game); }
+    catch (error) {
+      if (!(error instanceof GameError)) throw error;
+      // A late/invalid action must not roll back the expired turn, nor leave a partial action.
+      actionError = error;
+      game = reconciled;
+    }
+    reconcileLifecycle(game, now); reconcileTrades(game); normalizeGame(game, now);
+    const serialized = JSON.stringify(game);
+    if (serialized !== original) {
+      await client.query("UPDATE game_rooms SET state = $1, updated_at = NOW() WHERE code = $2", [serialized, game.code]);
+    }
     await client.query("COMMIT");
-    return game;
+    saved = game;
   } catch (error) {
     await client.query("ROLLBACK"); throw error;
   } finally { client.release(); }
+  if (actionError) throw actionError;
+  return saved;
+}
+
+// Timers continue when no browser is polling. Persisted deadlines survive restarts;
+// competing requests/processes serialize through the same row lock.
+let sweeping = false;
+export async function sweepRooms() {
+  if (sweeping) return;
+  sweeping = true;
+  try {
+    const result = await pool.query("SELECT code FROM game_rooms WHERE state->>'phase' IN ('playing', 'lobby') AND updated_at > NOW() - INTERVAL '24 hours'");
+    for (const { code } of result.rows) {
+      try { await mutate(code, () => {}); }
+      catch (err) { logger.error({ err, code }, "Room timer reconciliation failed"); }
+    }
+  } finally { sweeping = false; }
 }
 function codeOf(req: Request): string {
   const parsed = GetGameParams.safeParse(req.params);
@@ -43,9 +79,9 @@ function bodyOf<T>(schema: { safeParse: (input: unknown) => { success: boolean; 
 router.use("/games", (_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
 router.get("/games", async (_req, res): Promise<void> => {
   const result = await pool.query("SELECT state FROM game_rooms WHERE updated_at > NOW() - INTERVAL '24 hours' ORDER BY updated_at DESC LIMIT 30");
-  const rooms = result.rows.map(row => row.state as StoredGame).filter(g => g.phase !== "finished").map(g => ({
-    code: g.code, hostName: g.players[0]!.name, players: g.players.length,
-    maxPlayers: 6, phase: g.phase, createdAt: g.createdAt,
+  const rooms = result.rows.map(row => normalizeGame(row.state as StoredGame)).filter(g => g.phase !== "finished" && g.players.length).map(g => ({
+    code: g.code, hostName: (g.players.find(p => p.isHost) ?? g.players[0])!.name, players: g.players.length,
+    maxPlayers: 6, phase: g.phase, createdAt: g.createdAt, connectedPlayers: g.players.filter(p => p.connected).length,
   }));
   res.json(ListGamesResponse.parse({ rooms }));
 });
@@ -67,9 +103,9 @@ router.post("/games", async (req, res): Promise<void> => {
   throw new GameError("Could not create a room. Please try again.", 503);
 });
 router.get("/games/:code", async (req, res): Promise<void> => {
-  const result = await pool.query("SELECT state FROM game_rooms WHERE code = $1", [codeOf(req)]);
-  if (!result.rows[0]) throw new GameError("Room not found. Create a new table or check the code.", 404);
-  res.json(GetGameResponse.parse(view(result.rows[0].state as StoredGame, req.get("X-Game-Token"))));
+  const token = req.get("X-Game-Token");
+  const game = await mutate(codeOf(req), () => {}, token);
+  res.json(GetGameResponse.parse(view(game, token)));
 });
 router.post("/games/:code/players", async (req, res): Promise<void> => {
   const input = bodyOf<{ playerName: string; sessionToken?: string }>(JoinGameBody, req.body);
@@ -77,37 +113,37 @@ router.post("/games/:code/players", async (req, res): Promise<void> => {
   const game = await mutate(codeOf(req), g => {
     if (token && g.tokens[token]) return;
     token = addPlayer(g, input.playerName);
-  });
+  }, token);
   res.json(JoinGameResponse.parse({ game: view(game, token), sessionToken: token }));
 });
 router.post("/games/:code/jail", async (req, res): Promise<void> => {
   const { sessionToken, method } = bodyOf<{ sessionToken: string; method: "pay" | "card" }>(LeaveJailBody, req.body);
-  const game = await mutate(codeOf(req), g => leaveJail(g, sessionToken, method));
+  const game = await mutate(codeOf(req), g => leaveJail(g, sessionToken, method), sessionToken);
   res.json(GetGameResponse.parse(view(game, sessionToken)));
 });
 for (const [path, schema, action] of [
   ["start", StartGameBody, start], ["roll", RollDiceBody, roll],
-  ["buy", BuyPropertyBody, buy], ["pass", EndTurnBody, end],
+  ["buy", BuyPropertyBody, buy], ["pass", EndTurnBody, end], ["resign", ResignGameBody, resign],
 ] as const) {
   router.post(`/games/:code/${path}`, async (req, res): Promise<void> => {
     const { sessionToken } = bodyOf<{ sessionToken: string }>(schema, req.body);
-    const game = await mutate(codeOf(req), g => action(g, sessionToken));
+    const game = await mutate(codeOf(req), g => action(g, sessionToken), sessionToken);
     res.json(GetGameResponse.parse(view(game, sessionToken)));
   });
 }
 router.post("/games/:code/property", async (req, res): Promise<void> => {
   const input = bodyOf<PropertyManagementInput>(ManagePropertyBody, req.body);
-  const game = await mutate(codeOf(req), g => manageProperty(g, input));
+  const game = await mutate(codeOf(req), g => manageProperty(g, input), input.sessionToken);
   res.json(GetGameResponse.parse(view(game, input.sessionToken)));
 });
 router.post("/games/:code/trades", async (req, res): Promise<void> => {
   const input = bodyOf<TradeProposalInput>(ProposeTradeBody, req.body);
-  const game = await mutate(codeOf(req), g => proposeTrade(g, input));
+  const game = await mutate(codeOf(req), g => proposeTrade(g, input), input.sessionToken);
   res.json(GetGameResponse.parse(view(game, input.sessionToken)));
 });
 router.post("/games/:code/trades/respond", async (req, res): Promise<void> => {
   const input = bodyOf<TradeResponseInput>(RespondTradeBody, req.body);
-  const game = await mutate(codeOf(req), g => respondTrade(g, input));
+  const game = await mutate(codeOf(req), g => respondTrade(g, input), input.sessionToken);
   res.json(GetGameResponse.parse(view(game, input.sessionToken)));
 });
 router.use((err: unknown, req: Request, res: Response, next: NextFunction) => {

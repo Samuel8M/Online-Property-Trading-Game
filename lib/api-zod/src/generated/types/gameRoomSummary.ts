@@ -14,4 +14,5 @@ export interface GameRoomSummary {
   maxPlayers: number;
   phase: GameRoomSummaryPhase;
   createdAt: number;
+  connectedPlayers?: number;
 }

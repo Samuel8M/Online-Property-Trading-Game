@@ -25,6 +25,7 @@ export interface GameRoomSummary {
   maxPlayers: number;
   phase: GameRoomSummaryPhase;
   createdAt: number;
+  connectedPlayers?: number;
 }
 
 export interface GameRoomList {
@@ -52,6 +53,10 @@ export interface GamePlayer {
   isHost: boolean;
   jailTurns?: number;
   jailCards?: number;
+  connected?: boolean;
+  resigned?: boolean;
+  /** Last authenticated presence in server epoch milliseconds */
+  lastSeenAt?: number;
 }
 
 export type GameSpaceType = typeof GameSpaceType[keyof typeof GameSpaceType];
@@ -145,6 +150,14 @@ export interface GameView {
   consecutiveDoubles?: number;
   extraRoll?: boolean;
   rollSerial?: number;
+  /** Server epoch milliseconds at response time */
+  serverTime?: number;
+  /**
+     * Persisted server turn deadline in epoch milliseconds
+     * @nullable
+     */
+  turnDeadline?: number | null;
+  turnDurationMs?: number;
 }
 
 export interface GameJoinResult {

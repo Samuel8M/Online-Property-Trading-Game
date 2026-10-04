@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { sweepRooms } from "./routes/games";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  const sweep = () => { void sweepRooms().catch(err => logger.error({ err }, "Room timer sweep failed")); };
+  sweep();
+  setInterval(sweep, 5000).unref();
 });

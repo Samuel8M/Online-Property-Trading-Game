@@ -18,4 +18,8 @@ export interface GamePlayer {
   isHost: boolean;
   jailTurns?: number;
   jailCards?: number;
+  connected?: boolean;
+  resigned?: boolean;
+  /** Last authenticated presence in server epoch milliseconds */
+  lastSeenAt?: number;
 }

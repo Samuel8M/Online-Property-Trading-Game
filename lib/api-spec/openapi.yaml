@@ -74,6 +74,29 @@ paths:
                 $ref: "#/components/schemas/GameView"
         "404":
           description: Room not found
+  /games/{code}/resign:
+    post:
+      operationId: resignGame
+      tags: [games]
+      summary: Leave a waiting room or permanently resign from a running game
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionInput"
+      responses:
+        "200":
+          description: Updated room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
   /games/{code}/players:
     post:
       operationId: joinGame
@@ -326,6 +349,7 @@ components:
         maxPlayers: { type: integer }
         phase: { type: string, enum: [lobby, playing, finished] }
         createdAt: { type: integer }
+        connectedPlayers: { type: integer }
     GameJoinResult:
       type: object
       required: [game, sessionToken]
@@ -366,6 +390,9 @@ components:
         consecutiveDoubles: { type: integer }
         extraRoll: { type: boolean }
         rollSerial: { type: integer }
+        serverTime: { type: integer, description: Server epoch milliseconds at response time }
+        turnDeadline: { type: ["integer", "null"], description: Persisted server turn deadline in epoch milliseconds }
+        turnDurationMs: { type: integer }
     GamePlayer:
       type: object
       required: [id, name, color, cash, position, jailed, bankrupt, properties, isHost]
@@ -383,6 +410,9 @@ components:
         isHost: { type: boolean }
         jailTurns: { type: integer }
         jailCards: { type: integer }
+        connected: { type: boolean }
+        resigned: { type: boolean }
+        lastSeenAt: { type: integer, description: Last authenticated presence in server epoch milliseconds }
     GameSpace:
       type: object
       required: [id, name, type, price, rent, group, ownerPlayerId, color, description, buildingLevel, mortgaged, buildCost, currentRent]

@@ -30,4 +30,12 @@ export interface GameView {
   consecutiveDoubles?: number;
   extraRoll?: boolean;
   rollSerial?: number;
+  /** Server epoch milliseconds at response time */
+  serverTime?: number;
+  /**
+     * Persisted server turn deadline in epoch milliseconds
+     * @nullable
+     */
+  turnDeadline?: number | null;
+  turnDurationMs?: number;
 }

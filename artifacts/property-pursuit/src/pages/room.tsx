@@ -16,6 +16,7 @@ import type { GameView } from '@workspace/api-client-react';
 import { Tile, TileDetail } from '@/components/board';
 import { ManagePanel, TradePanel } from '@/components/manage';
 import { DicePair } from '@/components/dice';
+import { ExitSeat, TurnTimer, useRoomClock } from '@/components/room-lifecycle';
 import { errMsg, getToken, money, setToken } from '@/lib/session';
 
 export default function Room() {
@@ -41,10 +42,13 @@ export default function Room() {
   const end = useEndTurn();
   const jail = useLeaveJail();
   const game = q.data;
+  const clock = useRoomClock(game, q.dataUpdatedAt);
+  const disconnected = q.isError || clock.stale;
 
   const lastTurnRoll = useRef('');
   useEffect(() => {
     document.title = `Table ${code} · Monopoly Online`;
+    setTok(getToken(code));
     return () => { document.title = 'Monopoly Online'; };
   }, [code]);
   useEffect(() => {
@@ -76,12 +80,12 @@ export default function Room() {
   if (q.isLoading) {
     return <div className="mx-auto max-w-5xl space-y-4 p-8"><div className="skeleton h-12 w-64" /><div className="skeleton aspect-square max-w-xl" /></div>;
   }
-  if (q.isError || !game) {
+  if (!game) {
     return (
       <div className="grid min-h-[100dvh] place-items-center p-6">
         <div className="panel max-w-sm space-y-3 p-8 text-center">
-          <h1 className="display text-3xl font-black">No such table</h1>
-          <p className="text-muted-foreground">Room {code} could not be found. {errMsg(q.error)}</p>
+          <h1 className="display text-3xl font-black">Table unavailable</h1>
+          <p className="text-muted-foreground">Could not load room {code}. {errMsg(q.error)} Your saved session has not been removed.</p>
           <button className="btn" onClick={() => q.refetch()}>Retry</button>{' '}
           <Link href="/" className="btn btn-primary">Back to lobby</Link>
         </div>
@@ -97,7 +101,7 @@ export default function Room() {
    const canBuy = myTurn && rolled && !!curSpace && curSpace.price != null && !curSpace.ownerPlayerId && !!me && !me.bankrupt && me.cash >= curSpace.price && !me.jailed;
   const winner = game.players.find((p) => p.id === game.winnerPlayerId);
   const shown = game.board[sel ?? cur?.position ?? 0];
-  const busy = roll.isPending || buy.isPending || end.isPending || start.isPending || jail.isPending;
+   const busy = disconnected || roll.isPending || buy.isPending || end.isPending || start.isPending || jail.isPending;
   const side = game.board.length / 4 + 1;
   const classic = game.board.length === 40;
   const extraRoll = game.extraRoll && !cur?.jailed && !cur?.bankrupt;
@@ -115,6 +119,7 @@ export default function Room() {
           <button className="btn !py-1.5" onClick={() => setRules((r) => !r)} data-testid="button-rules">{rules ? 'Hide rules' : 'Rules'}</button>
         </span>
       </header>
+      {disconnected && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="connection-warning">Connection lost — reconnecting automatically. Your seat is saved, but the server timer keeps running. <button className="underline" onClick={() => q.refetch()}>Retry now</button></div>}
 
       <AnimatePresence>
         {rules && (
@@ -131,6 +136,7 @@ export default function Room() {
               <p><b>{classic ? 'Jail' : 'Detention'}.</b> {classic ? 'Before rolling, pay $50 or use a card. Otherwise try doubles up to three turns. On the third failed attempt, pay $50 and move. Doubles that release you do not earn another roll.' : 'Pay $50 automatically on your next roll to leave.'}</p>
               <p><b>Transport.</b> {classic && 'Utilities charge 4× the landing dice total, or 10× for two unmortgaged utilities. '}Railroad rent doubles for each additional unmortgaged railroad.</p>
               <p><b>Winning.</b> Bankrupt players are out. Last one standing wins.</p>
+              <p><b>Timers & reconnecting.</b> Each turn has 90 seconds, including doubles. The server skips unfinished actions at expiry, without rolling for you. Away means no contact for 45 seconds. Return in the same browser to reconnect. Running-game seats stay saved; waiting-room seats are freed after five minutes away, and an absent host is replaced. Resignation is permanent.</p>
             </div>
           </motion.div>
         )}
@@ -171,6 +177,7 @@ export default function Room() {
               <div className="space-y-3">
                 <h2 className="display text-2xl font-black">Waiting for players</h2>
                 <p className="text-sm text-muted-foreground">{game.players.length} seated. Needs 2 to 6 to begin.</p>
+                <p className="text-xs text-muted-foreground">Away seats are saved for five minutes before being freed. A connected player takes over if the host is away.</p>
                 {canJoin && (
                   <div className="space-y-2">
                     <input className="field" maxLength={18} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-join-name" />
@@ -184,6 +191,7 @@ export default function Room() {
             )}
             {game.phase === 'playing' && (
               <div className="space-y-3">
+                <TurnTimer game={game} now={clock.now} />
                 <div className="flex items-center justify-between">
                   <h2 className="display text-2xl font-black">{myTurn ? 'Your move' : cur ? `${cur.name}'s move` : 'In play'}</h2>
                   <span className="font-mono text-xs text-muted-foreground">Turn {game.turnNumber}</span>
@@ -202,9 +210,10 @@ export default function Room() {
                      <button className="btn" disabled={busy} onClick={() => act(end)} data-testid="button-end-turn">{extraRoll ? (canBuy ? 'Pass & roll again' : 'Continue — roll again') : (canBuy ? 'Pass' : 'End turn')}</button>
                   </div>
                 )}
-                {me && !myTurn && <p className="text-sm text-muted-foreground">Sit tight. It is not your turn.</p>}
+                {me && !myTurn && <p className="text-sm text-muted-foreground">{me.resigned ? 'You resigned and are now watching.' : me.bankrupt ? 'You are out and are now watching.' : 'Sit tight. It is not your turn.'}</p>}
               </div>
             )}
+            <ExitSeat game={game} code={code} token={token} disabled={busy} onGame={setGame} onToken={setTok} onError={setErr} />
           </section>
 
           <section className="panel p-5">
@@ -218,9 +227,10 @@ export default function Room() {
                     <b className="truncate">{p.name}{p.id === game.myPlayerId ? ' (you)' : ''}</b>
                     {p.isHost && <span className="rounded bg-ink px-1.5 text-[10px] font-bold uppercase text-paper">Host</span>}
                     {p.jailed && <span className="rounded bg-primary px-1.5 text-[10px] font-bold uppercase text-primary-foreground">Jail</span>}
-                    {p.bankrupt && <span className="text-[10px] font-bold uppercase">Bankrupt</span>}
+                    {p.bankrupt && <span className="text-[10px] font-bold uppercase">{p.resigned ? 'Resigned' : 'Bankrupt'}</span>}
                     <span className="ml-auto font-mono font-bold">{money(p.cash)}</span>
                   </div>
+                  {!p.resigned && <p className="mt-1 text-xs text-muted-foreground">{p.connected ? 'Connected' : 'Away · seat saved'}</p>}
                    {!!p.jailCards && <p className="mt-1 text-xs">{p.jailCards} Get Out of Jail Free card{p.jailCards === 1 ? '' : 's'}</p>}
                   {p.properties.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -235,8 +245,8 @@ export default function Room() {
           </section>
 
           {shown && <div className="sm:hidden"><TileDetail space={shown} players={game.players} /></div>}
-          {myTurn && me && !me.bankrupt && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
-          {(game.phase === 'playing' || game.trades.length > 0) && <TradePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} myTurn={myTurn} />}
+          {myTurn && me && !me.bankrupt && !disconnected && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
+          {!disconnected && (game.phase === 'playing' || game.trades.length > 0) && <TradePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} myTurn={myTurn} />}
 
           <section className="panel p-5">
             <h2 className="display mb-2 text-xl font-black">Table talk</h2>

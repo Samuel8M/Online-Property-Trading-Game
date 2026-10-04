@@ -27,7 +27,8 @@ export const ListGamesResponse = zod.object({
   "players": zod.number().int(),
   "maxPlayers": zod.number().int(),
   "phase": zod.enum(['lobby', 'playing', 'finished']),
-  "createdAt": zod.number().int()
+  "createdAt": zod.number().int(),
+  "connectedPlayers": zod.number().int().optional()
 }))
 })
 
@@ -63,7 +64,10 @@ export const CreateGameResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -108,7 +112,10 @@ export const CreateGameResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
 })
@@ -145,7 +152,10 @@ export const GetGameResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -190,7 +200,99 @@ export const GetGameResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Leave a waiting room or permanently resign from a running game
+ */
+export const ResignGameParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const resignGameBodySessionTokenMin = 16;
+
+
+
+export const ResignGameBody = zod.object({
+  "sessionToken": zod.string().min(resignGameBodySessionTokenMin)
+})
+
+export const resignGameResponseBoardItemBuildingLevelMin = 0;
+export const resignGameResponseBoardItemBuildingLevelMax = 5;
+
+
+
+export const ResignGameResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(resignGameResponseBoardItemBuildingLevelMin).max(resignGameResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int()
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -235,7 +337,10 @@ export const JoinGameResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -280,7 +385,10 @@ export const JoinGameResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 }),
   "sessionToken": zod.string()
 })
@@ -320,7 +428,10 @@ export const StartGameResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -365,7 +476,10 @@ export const StartGameResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -403,7 +517,10 @@ export const RollDiceResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -448,7 +565,10 @@ export const RollDiceResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -486,7 +606,10 @@ export const BuyPropertyResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -531,7 +654,10 @@ export const BuyPropertyResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -570,7 +696,10 @@ export const LeaveJailResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -615,7 +744,10 @@ export const LeaveJailResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -653,7 +785,10 @@ export const EndTurnResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -698,7 +833,10 @@ export const EndTurnResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -741,7 +879,10 @@ export const ManagePropertyResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -786,7 +927,10 @@ export const ManagePropertyResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -846,7 +990,10 @@ export const ProposeTradeResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -891,7 +1038,10 @@ export const ProposeTradeResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 
@@ -932,7 +1082,10 @@ export const RespondTradeResponse = zod.object({
   "properties": zod.array(zod.number().int()),
   "isHost": zod.boolean(),
   "jailTurns": zod.number().int().optional(),
-  "jailCards": zod.number().int().optional()
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
 })),
   "board": zod.array(zod.object({
   "id": zod.number().int(),
@@ -977,7 +1130,10 @@ export const RespondTradeResponse = zod.object({
   "createdAt": zod.number().int(),
   "consecutiveDoubles": zod.number().int().optional(),
   "extraRoll": zod.boolean().optional(),
-  "rollSerial": zod.number().int().optional()
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "turnDurationMs": zod.number().int().optional()
 })
 
 

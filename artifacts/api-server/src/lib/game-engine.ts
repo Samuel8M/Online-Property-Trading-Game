@@ -5,7 +5,7 @@ import type {
 } from "@workspace/api-zod";
 import { classicBoard, chanceCards, chestCards, type ClassicCard } from "./classic-board";
 
-export type StoredGame = Omit<GameView, "myPlayerId"> & {
+export type StoredGame = Omit<GameView, "myPlayerId" | "serverTime"> & {
   tokens: Record<string, string>;
   chanceDeck?: number[];
   chestDeck?: number[];
@@ -16,6 +16,9 @@ export class GameError extends Error {
 }
 
 const colors = ["#f97316", "#27b7b0", "#9b7cf4", "#e65b84", "#f0bb40", "#5482ee"];
+export const TURN_DURATION_MS = 90_000;
+export const PRESENCE_TIMEOUT_MS = 45_000;
+export const LOBBY_SEAT_GRACE_MS = 300_000;
 const buildingCosts: Record<string, number> = {
   Copper: 50, Coral: 100, Garden: 100, Violet: 150, Sapphire: 150, Rose: 200, Gold: 200,
   Brown: 50, "Light blue": 50, Pink: 100, Orange: 100, Red: 150, Yellow: 150, Green: 200, "Dark blue": 200,
@@ -28,8 +31,17 @@ export function addHistory(game: StoredGame, text: string) {
   game.message = text;
   game.history = [text, ...game.history].slice(0, 60);
 }
-export function normalizeGame(game: StoredGame): StoredGame {
+export function normalizeGame(game: StoredGame, now = Date.now()): StoredGame {
   game.trades ??= [];
+  game.turnDurationMs = TURN_DURATION_MS;
+  game.turnDeadline ??= game.phase === "playing" ? now + TURN_DURATION_MS : null;
+  if (game.phase !== "playing") game.turnDeadline = null;
+  for (const player of game.players) {
+    // Old rooms get a full reconnect grace period, not an immediate timeout.
+    player.lastSeenAt ??= now;
+    player.resigned ??= false;
+    player.connected = !player.resigned && now - player.lastSeenAt < PRESENCE_TIMEOUT_MS;
+  }
   const classic = game.board.length === 40 ? classicBoard() : [];
   for (const tile of game.board) {
     tile.buildingLevel ??= 0;
@@ -72,9 +84,9 @@ export function addPlayer(game: StoredGame, name: string): string {
   const token = randomUUID();
   const id = randomUUID();
   game.players.push({
-    id, name: cleanName(name), color: colors[game.players.length]!, cash: 1500,
+    id, name: cleanName(name), color: colors.find(c => !game.players.some(p => p.color === c))!, cash: 1500,
     position: 0, jailed: false, bankrupt: false, properties: [], isHost: game.players.length === 0,
-    jailTurns: 0, jailCards: 0,
+    jailTurns: 0, jailCards: 0, lastSeenAt: Date.now(), connected: true, resigned: false,
   });
   game.tokens[token] = id;
   addHistory(game, `${cleanName(name)} joined the table.`);
@@ -89,10 +101,10 @@ export function createRoom(code: string, name: string): { game: StoredGame; toke
   };
   return { game, token: addPlayer(game, name) };
 }
-export function view(game: StoredGame, token?: string): GameView {
-  normalizeGame(game);
+export function view(game: StoredGame, token?: string, now = Date.now()): GameView {
+  normalizeGame(game, now);
   const { tokens, chanceDeck, chestDeck, heldJailCards, ...publicGame } = game;
-  return { ...publicGame, myPlayerId: token ? tokens[token] ?? null : null };
+  return { ...publicGame, serverTime: now, myPlayerId: token ? tokens[token] ?? null : null };
 }
 function playerFor(game: StoredGame, token: string): GamePlayer {
   const player = game.players.find(p => p.id === game.tokens[token]);
@@ -115,6 +127,9 @@ function checkWinner(game: StoredGame) {
   const alive = game.players.filter(p => !p.bankrupt);
   if (alive.length === 1) {
     game.phase = "finished";
+    game.turnDeadline = null;
+    game.currentPlayerId = null;
+    game.extraRoll = false;
     game.winnerPlayerId = alive[0]!.id;
     addHistory(game, `${alive[0]!.name} wins Monopoly!`);
   }
@@ -279,6 +294,7 @@ export function start(game: StoredGame, token: string) {
   if (game.board.length !== 40) game.board = makeBoard();
   game.phase = "playing";
   game.currentPlayerId = game.players[0]!.id;
+  game.turnDeadline = Date.now() + TURN_DURATION_MS;
   addHistory(game, `The pursuit begins! ${game.players[0]!.name} rolls first.`);
 }
 export function roll(game: StoredGame, token: string, dice: [number, number] = [randomInt(1, 7), randomInt(1, 7)]) {
@@ -368,14 +384,108 @@ export function end(game: StoredGame, token: string) {
     addHistory(game, `Doubles! ${player.name} rolls again (${game.consecutiveDoubles} consecutive doubles).`);
     return;
   }
+  advanceTurn(game);
+}
+
+function advanceTurn(game: StoredGame, now = Date.now()) {
   game.extraRoll = false;
   game.consecutiveDoubles = 0;
-  const currentIndex = game.players.findIndex(p => p.id === player.id);
+  const currentIndex = game.players.findIndex(p => p.id === game.currentPlayerId);
   const next = [...game.players.slice(currentIndex + 1), ...game.players.slice(0, currentIndex + 1)].find(p => !p.bankrupt)!;
+  if (!next || game.phase !== "playing") return;
   game.currentPlayerId = next.id;
   game.turnNumber += 1;
   game.lastRoll = [];
+  game.turnDeadline = now + TURN_DURATION_MS;
   addHistory(game, `${next.name}'s turn. Time to roll.`);
+}
+
+// Called under the room's PostgreSQL row lock, before any action or heartbeat.
+export function reconcileLifecycle(game: StoredGame, now = Date.now()) {
+  normalizeGame(game, now);
+  if (game.phase === "lobby") {
+    // Lobby seats are temporary; running-game seats are never reclaimed.
+    for (const player of [...game.players]) {
+      if (now - player.lastSeenAt! < LOBBY_SEAT_GRACE_MS) continue;
+      game.players = game.players.filter(p => p.id !== player.id);
+      for (const [token, id] of Object.entries(game.tokens)) if (id === player.id) delete game.tokens[token];
+      addHistory(game, `${player.name}'s waiting-room seat was freed after five minutes away.`);
+    }
+    if (!game.players.length) { game.phase = "finished"; game.turnDeadline = null; return; }
+    const host = game.players.find(p => p.isHost);
+    const replacement = game.players.find(p => p.connected && p.id !== host?.id);
+    if ((!host || !host.connected) && replacement) {
+      for (const p of game.players) p.isHost = p.id === replacement.id;
+      addHistory(game, `${replacement.name} is now host because the previous host is away.`);
+    }
+    return;
+  }
+  if (game.phase !== "playing") return;
+  const current = game.players.find(p => p.id === game.currentPlayerId);
+  if (current?.bankrupt) {
+    advanceTurn(game, now);
+    return;
+  }
+  if (game.turnDeadline !== null && now >= game.turnDeadline!) {
+    const explanation = game.lastRoll.length
+      ? "Remaining purchases and extra rolls were passed; resolved payments remain."
+      : "No dice were rolled and no money or properties changed.";
+    addHistory(game, `${current?.name ?? "The player"}'s turn was skipped: the 90-second timer expired. ${explanation} Their seat is saved.`);
+    // Give the next player a full turn, even after a server outage.
+    advanceTurn(game, now);
+  }
+}
+
+export function touchPresence(game: StoredGame, token: string | undefined, now = Date.now()) {
+  const player = game.players.find(p => p.id === (token ? game.tokens[token] : undefined));
+  if (!player || player.resigned) return;
+  const wasAway = !player.connected;
+  // Polling every second must not write every second.
+  if (wasAway || now - (player.lastSeenAt ?? 0) >= 10_000) player.lastSeenAt = now;
+  player.connected = true;
+  if (wasAway) addHistory(game, `${player.name} reconnected. Their seat and assets are preserved.`);
+  if (game.phase === "lobby" && !game.players.some(p => p.isHost && p.connected)) {
+    for (const p of game.players) p.isHost = p.id === player.id;
+    addHistory(game, `${player.name} is now the room host.`);
+  }
+}
+
+export function resign(game: StoredGame, token: string) {
+  const player = playerFor(game, token);
+  if (player.resigned) return;
+  if (game.phase === "finished") throw new GameError("This game has already finished.");
+  if (game.phase === "lobby") {
+    game.players = game.players.filter(p => p.id !== player.id);
+    for (const [session, id] of Object.entries(game.tokens)) if (id === player.id) delete game.tokens[session];
+    if (player.isHost && game.players.length) {
+      const next = game.players.find(p => p.connected) ?? game.players[0]!;
+      next.isHost = true;
+      addHistory(game, `${player.name} left the table. ${next.name} is now host.`);
+    } else addHistory(game, `${player.name} left the table.`);
+    if (!game.players.length) game.phase = "finished";
+    return;
+  }
+  if (player.bankrupt) throw new GameError("This player is already out of the game.");
+  player.resigned = true;
+  player.connected = false;
+  player.bankrupt = true;
+  player.cash = 0;
+  player.properties = [];
+  player.jailed = false;
+  for (const tile of game.board.filter(s => s.ownerPlayerId === player.id)) {
+    tile.ownerPlayerId = null;
+    tile.buildingLevel = 0;
+    tile.mortgaged = false;
+  }
+  for (const source of game.heldJailCards?.[player.id] ?? []) {
+    (game[source === "chance" ? "chanceDeck" : "chestDeck"] ??= []).push(source === "chance" ? 7 : 4);
+  }
+  if (game.heldJailCards) delete game.heldJailCards[player.id];
+  player.jailCards = 0;
+  addHistory(game, `${player.name} resigned permanently. Their deeds and buildings return to the bank; cash is forfeited.`);
+  checkWinner(game);
+  if (game.phase === "playing" && game.currentPlayerId === player.id) advanceTurn(game);
+  reconcileTrades(game);
 }
 
 export function manageProperty(game: StoredGame, input: PropertyManagementInput) {
