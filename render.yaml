@@ -5,7 +5,7 @@ services:
     name: monopoly-online
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm run build:web
+    buildCommand: pnpm install --frozen-lockfile && pnpm run build:web
     startCommand: pnpm start
     healthCheckPath: /api/healthz
     envVars:
