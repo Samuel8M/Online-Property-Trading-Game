@@ -8,6 +8,8 @@
 
 export * from './auctionResponseInput';
 export * from './auctionResponseInputAction';
+export * from './chatInput';
+export * from './chatMessage';
 export * from './debtResolutionInput';
 export * from './debtResolutionInputAction';
 export * from './gameActionInput';

@@ -97,6 +97,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameView"
+  /games/{code}/chat:
+    post:
+      operationId: sendChat
+      tags: [games]
+      summary: Post a table chat message from a seated player
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "200":
+          description: Updated room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
   /games/{code}/players:
     post:
       operationId: joinGame
@@ -440,6 +463,11 @@ components:
         history:
           type: array
           items: { type: string }
+        chat:
+          type: array
+          description: Most recent table chat messages, newest last.
+          items:
+            $ref: "#/components/schemas/ChatMessage"
         winnerPlayerId: { type: ["string", "null"] }
         myPlayerId: { type: ["string", "null"] }
         createdAt: { type: integer }
@@ -611,6 +639,22 @@ components:
         sessionToken: { type: string, minLength: 1 }
         debtId: { type: string, minLength: 1 }
         action: { type: string, enum: [settle, bankrupt] }
+    ChatMessage:
+      type: object
+      required: [id, playerId, name, color, text, at]
+      properties:
+        id: { type: string }
+        playerId: { type: string }
+        name: { type: string }
+        color: { type: string }
+        text: { type: string }
+        at: { type: integer, description: Epoch milliseconds }
+    ChatInput:
+      type: object
+      required: [sessionToken, text]
+      properties:
+        sessionToken: { type: string, minLength: 16 }
+        text: { type: string, minLength: 1, maxLength: 200 }
     GameActionInput:
       type: object
       required: [sessionToken]

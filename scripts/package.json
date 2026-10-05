@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "test:game": "tsx --test ../artifacts/api-server/src/lib/game-engine.test.ts ../artifacts/api-server/src/lib/classic-engine.test.ts ../artifacts/api-server/src/lib/game-lifecycle.test.ts ../artifacts/api-server/src/lib/game-debt.test.ts",
-    "test:game-api": "GAME_API_TEST=1 tsx --test ../artifacts/api-server/src/lib/property-api.integration.test.ts ../artifacts/api-server/src/lib/lifecycle-api.integration.test.ts ../artifacts/api-server/src/lib/debt-api.integration.test.ts",
+    "test:game": "tsx --test ../artifacts/api-server/src/lib/game-engine.test.ts ../artifacts/api-server/src/lib/classic-engine.test.ts ../artifacts/api-server/src/lib/game-lifecycle.test.ts ../artifacts/api-server/src/lib/game-debt.test.ts ../artifacts/api-server/src/lib/game-auction.test.ts ../artifacts/api-server/src/lib/debt-trades.test.ts ../artifacts/api-server/src/lib/game-chat.test.ts ../artifacts/property-pursuit/src/lib/auction-alerts.test.ts ../artifacts/property-pursuit/src/lib/session.test.ts",
+    "test:game-api": "GAME_API_TEST=1 tsx --test ../artifacts/api-server/src/lib/property-api.integration.test.ts ../artifacts/api-server/src/lib/lifecycle-api.integration.test.ts ../artifacts/api-server/src/lib/debt-api.integration.test.ts ../artifacts/api-server/src/lib/debt-trades-api.integration.test.ts ../artifacts/api-server/src/lib/auction-api.integration.test.ts ../artifacts/api-server/src/lib/chat-api.integration.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

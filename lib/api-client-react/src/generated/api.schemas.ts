@@ -147,6 +147,16 @@ export interface GameTrade {
   debt?: GameDebt;
 }
 
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  name: string;
+  color: string;
+  text: string;
+  /** Epoch milliseconds */
+  at: number;
+}
+
 export interface GameAuction {
   id: string;
   spaceId: number;
@@ -174,6 +184,8 @@ export interface GameView {
   lastRoll: number[];
   message: string;
   history: string[];
+  /** Most recent table chat messages, newest last. */
+  chat?: ChatMessage[];
   /** @nullable */
   winnerPlayerId: string | null;
   /** @nullable */
@@ -333,6 +345,16 @@ export interface DebtResolutionInput {
   /** @minLength 1 */
   debtId: string;
   action: DebtResolutionInputAction;
+}
+
+export interface ChatInput {
+  /** @minLength 16 */
+  sessionToken: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  text: string;
 }
 
 export interface GameActionInput {

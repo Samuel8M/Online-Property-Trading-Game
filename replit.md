@@ -55,6 +55,8 @@ state, or tokens. `/api/healthz` remains a static, database-free liveness check.
 - Existing 28-space games already in progress are preserved rather than silently remapping positions and deeds. Old waiting rooms adopt the full board when started.
 - Anonymous seat sessions are not user accounts; visitors do not need to register.
 - Game mutations use PostgreSQL row locks so simultaneous requests cannot both take the same turn.
+- The server creates `game_rooms` on startup if missing (`ensureSchema` in `lib/db`), so fresh hosted databases need no migration step. Keep it in sync with the Drizzle schema.
+- Outside Replit, one Node process serves `/api` and the built client from `artifacts/property-pursuit/dist/public` (override with `STATIC_DIR`). Express trusts one proxy hop (`TRUST_PROXY_HOPS`) so per-IP room limits see real visitors.
 - Rooms are persisted, not kept only in one server process. The client refreshes shared state every second.
 - Public turns last 90 seconds total, including doubles. The deadline is saved in room JSON and checked under the same row lock as player actions. Invalid or late actions cannot roll back elapsed-time reconciliation.
 - A five-second server sweep selects indexed due work, skips busy row locks, and drains bounded batches immediately while there is a backlog. Room writes update scheduling metadata atomically with saved state; direct database fixtures that change deadlines must also refresh `next_reconcile_at`. Existing rows receive an initial check through the column default. On recovery from an outage, the next player gets a full turn instead of rapidly skipping a backlog of turns.
@@ -65,7 +67,7 @@ state, or tokens. `/api/healthz` remains a static, database-free liveness check.
 
 ## Product
 
-Public room discovery, create/join/watch, invite links, animated dice, property purchases, houses/hotels, upgraded rents, mortgages, consensual cash/deed trades, railroads, dice-based utilities, taxes, separate shuffled Chance and Community Chest decks, Jail, bankruptcy, and a winner screen. Doubles earn another roll; three consecutive doubles send the player to Jail. Jail supports doubles attempts, a $50 fine, and Get Out of Jail Free cards. Auctions are not included. See `docs/property-rules.md` for development, mortgage, and trade rules, including legacy-room compatibility.
+Public room discovery, create/join/watch, invite links, table chat for seated players (spectators read only), animated dice, property purchases, houses/hotels, upgraded rents, mortgages, consensual cash/deed trades, railroads, dice-based utilities, taxes, separate shuffled Chance and Community Chest decks, Jail, bankruptcy, and a winner screen. Doubles earn another roll; three consecutive doubles send the player to Jail. Jail supports doubles attempts, a $50 fine, and Get Out of Jail Free cards. Declined deeds go to a voluntary auction. See `docs/property-rules.md` for development, mortgage, and trade rules, including legacy-room compatibility.
 
 ## User preferences
 

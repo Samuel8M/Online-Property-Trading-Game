@@ -7,7 +7,7 @@ import type { GameJoinResult, GameView, GameRoomList } from "@workspace/api-zod"
 import { type StoredGame, ROOM_ABANDONMENT_MS, TURN_DURATION_MS } from "./game-engine";
 
 const enabled = process.env.GAME_API_TEST === "1";
-const base = "http://localhost:80/api/games";
+const base = `${process.env.GAME_API_BASE ?? "http://localhost:80"}/api/games`;
 async function post(path: string, data: unknown) {
   const response = await fetch(`${base}${path}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),

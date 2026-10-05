@@ -118,6 +118,14 @@ export const CreateGameResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -235,6 +243,14 @@ export const GetGameResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -353,6 +369,14 @@ export const ResignGameResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -375,6 +399,135 @@ export const ResignGameResponse = zod.object({
   "eligiblePlayerIds": zod.array(zod.string()),
   "withdrawnPlayerIds": zod.array(zod.string()),
   "highestBid": zod.number().int().min(resignGameResponseAuctionOneHighestBidMin),
+  "highestBidderPlayerId": zod.string().nullable(),
+  "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
+  "increment": zod.number().int().min(1)
+}),zod.null()]).optional(),
+  "turnDurationMs": zod.number().int().optional()
+})
+
+
+/**
+ * @summary Post a table chat message from a seated player
+ */
+export const SendChatParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const sendChatBodySessionTokenMin = 16;
+
+export const sendChatBodyTextMax = 200;
+
+
+
+export const SendChatBody = zod.object({
+  "sessionToken": zod.string().min(sendChatBodySessionTokenMin),
+  "text": zod.string().min(1).max(sendChatBodyTextMax)
+})
+
+export const sendChatResponseBoardItemBuildingLevelMin = 0;
+export const sendChatResponseBoardItemBuildingLevelMax = 5;
+
+
+
+export const sendChatResponseAuctionOneHighestBidMin = 0;
+
+
+
+
+export const SendChatResponse = zod.object({
+  "code": zod.string(),
+  "phase": zod.enum(['lobby', 'playing', 'finished']),
+  "players": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "cash": zod.number().int(),
+  "position": zod.number().int(),
+  "jailed": zod.boolean(),
+  "bankrupt": zod.boolean(),
+  "properties": zod.array(zod.number().int()),
+  "isHost": zod.boolean(),
+  "jailTurns": zod.number().int().optional(),
+  "jailCards": zod.number().int().optional(),
+  "connected": zod.boolean().optional(),
+  "resigned": zod.boolean().optional(),
+  "lastSeenAt": zod.number().int().optional().describe('Last authenticated presence in server epoch milliseconds')
+})),
+  "board": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "type": zod.enum(['start', 'property', 'transit', 'utility', 'tax', 'chance', 'community-chest', 'rest', 'jail', 'go-to-jail']),
+  "price": zod.number().int().nullable(),
+  "rent": zod.number().int().nullable(),
+  "group": zod.string().nullable(),
+  "ownerPlayerId": zod.string().nullable(),
+  "color": zod.string(),
+  "description": zod.string(),
+  "buildingLevel": zod.number().int().min(sendChatResponseBoardItemBuildingLevelMin).max(sendChatResponseBoardItemBuildingLevelMax),
+  "mortgaged": zod.boolean(),
+  "buildCost": zod.number().int().nullable(),
+  "currentRent": zod.number().int().nullable(),
+  "developmentRents": zod.array(zod.number().int()).optional()
+})),
+  "trades": zod.array(zod.object({
+  "id": zod.string(),
+  "proposerPlayerId": zod.string(),
+  "recipientPlayerId": zod.string(),
+  "offeredCash": zod.number().int(),
+  "requestedCash": zod.number().int(),
+  "offeredProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "requestedProperties": zod.array(zod.object({
+  "spaceId": zod.number().int(),
+  "mortgaged": zod.boolean()
+})),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'cancelled', 'invalidated']),
+  "createdTurn": zod.number().int(),
+  "debt": zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}).optional().describe('Server-saved obligation for a debt-recovery offer. Absent on ordinary and legacy offers. Acceptance requires the same outstanding debt.')
+})),
+  "currentPlayerId": zod.string().nullable(),
+  "turnNumber": zod.number().int(),
+  "lastRoll": zod.array(zod.number().int()),
+  "message": zod.string(),
+  "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
+  "winnerPlayerId": zod.string().nullable(),
+  "myPlayerId": zod.string().nullable(),
+  "createdAt": zod.number().int(),
+  "consecutiveDoubles": zod.number().int().optional(),
+  "extraRoll": zod.boolean().optional(),
+  "rollSerial": zod.number().int().optional(),
+  "serverTime": zod.number().int().optional().describe('Server epoch milliseconds at response time'),
+  "pausedAt": zod.number().int().nullish().describe('Room paused after five minutes without seated player contact. Hidden from discovery and timers until a saved non-resigned seat returns.'),
+  "resumedAt": zod.number().int().nullish().describe('Most recent saved-seat recovery time. Recovery grants a fresh turn or auction deadline without changing assets or resolving debt.'),
+  "turnDeadline": zod.number().int().nullish().describe('Persisted server turn deadline in epoch milliseconds'),
+  "debt": zod.union([zod.object({
+  "id": zod.string(),
+  "debtorPlayerId": zod.string(),
+  "creditorPlayerId": zod.string().nullable().describe('Null means the bank'),
+  "amount": zod.number().int().min(1).describe('Full amount owed; no partial payment has been taken')
+}),zod.null()]).optional(),
+  "auction": zod.union([zod.object({
+  "id": zod.string(),
+  "spaceId": zod.number().int(),
+  "eligiblePlayerIds": zod.array(zod.string()),
+  "withdrawnPlayerIds": zod.array(zod.string()),
+  "highestBid": zod.number().int().min(sendChatResponseAuctionOneHighestBidMin),
   "highestBidderPlayerId": zod.string().nullable(),
   "deadline": zod.number().int().describe('Server epoch milliseconds; reset to 30 seconds after each bid'),
   "increment": zod.number().int().min(1)
@@ -478,6 +631,14 @@ export const JoinGameResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -598,6 +759,14 @@ export const StartGameResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -716,6 +885,14 @@ export const RollDiceResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -834,6 +1011,14 @@ export const BuyPropertyResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -953,6 +1138,14 @@ export const LeaveJailResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -1073,6 +1266,14 @@ export const ResolveDebtResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -1191,6 +1392,14 @@ export const EndTurnResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -1316,6 +1525,14 @@ export const RespondAuctionResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -1439,6 +1656,14 @@ export const ManagePropertyResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -1581,6 +1806,14 @@ export const ProposeTradeResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),
@@ -1702,6 +1935,14 @@ export const RespondTradeResponse = zod.object({
   "lastRoll": zod.array(zod.number().int()),
   "message": zod.string(),
   "history": zod.array(zod.string()),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "playerId": zod.string(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "text": zod.string(),
+  "at": zod.number().int().describe('Epoch milliseconds')
+})).optional().describe('Most recent table chat messages, newest last.'),
   "winnerPlayerId": zod.string().nullable(),
   "myPlayerId": zod.string().nullable(),
   "createdAt": zod.number().int(),

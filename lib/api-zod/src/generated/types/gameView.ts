@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ChatMessage } from './chatMessage';
 import type { GameAuction } from './gameAuction';
 import type { GameDebt } from './gameDebt';
 import type { GamePlayer } from './gamePlayer';
@@ -24,6 +25,8 @@ export interface GameView {
   lastRoll: number[];
   message: string;
   history: string[];
+  /** Most recent table chat messages, newest last. */
+  chat?: ChatMessage[];
   /** @nullable */
   winnerPlayerId: string | null;
   /** @nullable */

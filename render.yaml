@@ -1,0 +1,23 @@
+# One-click Render deployment: a free Node web service (API + built web client)
+# and a free PostgreSQL database. The server creates its table on startup.
+services:
+  - type: web
+    name: monopoly-online
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm run build:web
+    startCommand: pnpm start
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: monopoly-db
+          property: connectionString
+
+databases:
+  - name: monopoly-db
+    plan: free

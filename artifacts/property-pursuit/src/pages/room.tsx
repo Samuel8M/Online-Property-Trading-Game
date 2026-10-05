@@ -18,6 +18,7 @@ import { ManagePanel, TradePanel } from '@/components/manage';
 import { DebtPanel } from '@/components/debt';
 import { AuctionPanel } from '@/components/auction';
 import { AuctionAlerts } from '@/components/auction-alerts';
+import { ChatPanel } from '@/components/chat';
 import { DicePair } from '@/components/dice';
 import { ExitSeat, TurnTimer, useRoomClock } from '@/components/room-lifecycle';
 import { errMsg, getToken, money, setToken } from '@/lib/session';
@@ -262,8 +263,10 @@ export default function Room() {
            {!game.auction && (game.debt ? myDebt : myTurn) && me && !me.bankrupt && !disconnected && <ManagePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} />}
            {!game.auction && !disconnected && (game.phase === 'playing' || game.trades.length > 0) && <TradePanel game={game} code={code} token={token} onGame={setGame} onErr={setErr} myTurn={myTurn} />}
 
+          <ChatPanel game={game} code={code} token={token} canPost={!watching && !!me && !me.resigned && !!token} onGame={setGame} />
+
           <section className="panel p-5">
-            <h2 className="display mb-2 text-xl font-black">Table talk</h2>
+            <h2 className="display mb-2 text-xl font-black">Game log</h2>
             <ol className="max-h-56 space-y-1 overflow-y-auto text-sm" data-testid="list-history">
               {game.history.length === 0 && <li className="text-muted-foreground">Nothing has happened yet.</li>}
                {game.history.map((h, i) => <li key={i} className={i === 0 ? 'font-bold' : 'text-muted-foreground'}>{h}</li>)}

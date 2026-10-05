@@ -7,7 +7,7 @@ import { CreateGameResponse, JoinGameResponse, GetGameResponse } from "@workspac
 import { roll, type StoredGame } from "./game-engine";
 
 const enabled = process.env.GAME_API_TEST === "1";
-const base = "http://localhost:80/api/games";
+const base = `${process.env.GAME_API_BASE ?? "http://localhost:80"}/api/games`;
 async function post(path: string, data: unknown) {
   const res = await fetch(`${base}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
   return { status: res.status, data: await res.json() };

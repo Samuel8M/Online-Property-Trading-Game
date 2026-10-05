@@ -6,7 +6,7 @@ import { pool } from "@workspace/db";
 import { CreateGameResponse, JoinGameResponse, GetGameResponse } from "@workspace/api-zod";
 import type { StoredGame } from "./game-engine";
 
-const base = "http://localhost:80/api/games";
+const base = `${process.env.GAME_API_BASE ?? "http://localhost:80"}/api/games`;
 async function post(path: string, data: unknown) {
   const response = await fetch(`${base}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
   return { status: response.status, data: await response.json() };

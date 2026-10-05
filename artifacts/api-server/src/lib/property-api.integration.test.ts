@@ -8,7 +8,7 @@ import type { StoredGame } from "./game-engine";
 import { legacyBoardFixture } from "./legacy-board.fixture";
 
 const enabled = process.env.GAME_API_TEST === "1";
-const base = "http://localhost:80/api/games";
+const base = `${process.env.GAME_API_BASE ?? "http://localhost:80"}/api/games`;
 async function post(path: string, data: unknown) {
   const response = await fetch(`${base}${path}`, {
     method: "POST", headers: { "Content-Type": "application/json" },

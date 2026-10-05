@@ -216,7 +216,7 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       assert.equal(checked.players[1]!.isHost, true);
       assert.equal(checked.players.length, 2);
       for (const player of checked.players) player.lastSeenAt = now - LOBBY_SEAT_GRACE_MS - 1;
-      await database.query("UPDATE game_rooms SET state = $1, next_reconcile_at = NOW() WHERE code = 'LOBBY'", [JSON.stringify(checked)]);
+      await database.query("UPDATE game_rooms SET state = $1, next_reconcile_at = NOW() - INTERVAL '1 second' WHERE code = 'LOBBY'", [JSON.stringify(checked)]);
       await sweepDueRooms(database);
       checked = await saved("LOBBY");
       assert.equal(checked.phase, "finished");
@@ -249,7 +249,7 @@ test("indexed due-room processing stays bounded and never waits for a busy table
         player.lastSeenAt = Date.now() - PRESENCE_TIMEOUT_MS - 1;
         player.connected = false;
       }
-      await database.query("UPDATE game_rooms SET state = $1, next_reconcile_at = NOW() WHERE code = 'DEBT'", [JSON.stringify(paused)]);
+      await database.query("UPDATE game_rooms SET state = $1, next_reconcile_at = NOW() - INTERVAL '1 second' WHERE code = 'DEBT'", [JSON.stringify(paused)]);
       await sweepDueRooms(database);
       assert.ok((await database.query("SELECT next_reconcile_at FROM game_rooms WHERE code = 'DEBT'")).rows[0].next_reconcile_at);
       await database.query("TRUNCATE game_rooms");
@@ -357,7 +357,8 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       assert.equal(checked.turnNumber, 2);
       checked.pausedAt = now;
       checked.players[0]!.resigned = true;
-      touchPresence(checked, Object.keys(checked.tokens)[0], now);
+      const resignedToken = Object.keys(checked.tokens).find(token => checked.tokens[token] === checked.players[0]!.id);
+      touchPresence(checked, resignedToken, now);
       assert.equal(checked.pausedAt, now);
     });
   } finally {

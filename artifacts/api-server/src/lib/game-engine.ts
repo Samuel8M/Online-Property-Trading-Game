@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import type {
   GameView, GamePlayer, GameSpace, GameTrade, TradeProperty,
-   PropertyManagementInput, TradeProposalInput, TradeResponseInput, DebtResolutionInput, AuctionResponseInput,
+   PropertyManagementInput, TradeProposalInput, TradeResponseInput, DebtResolutionInput, AuctionResponseInput, ChatInput,
 } from "@workspace/api-zod";
 import { classicBoard, chanceCards, chestCards, type ClassicCard } from "./classic-board";
 
@@ -26,6 +26,8 @@ export const AUCTION_INCREMENT = 10;
 export const PRESENCE_TIMEOUT_MS = 45_000;
 export const LOBBY_SEAT_GRACE_MS = 300_000;
 export const ROOM_ABANDONMENT_MS = 300_000;
+export const CHAT_LIMIT = 50;
+export const CHAT_MIN_INTERVAL_MS = 750;
 const buildingCosts: Record<string, number> = {
   Copper: 50, Coral: 100, Garden: 100, Violet: 150, Sapphire: 150, Rose: 200, Gold: 200,
   Brown: 50, "Light blue": 50, Pink: 100, Orange: 100, Red: 150, Yellow: 150, Green: 200, "Dark blue": 200,
@@ -40,6 +42,7 @@ export function addHistory(game: StoredGame, text: string) {
 }
 export function normalizeGame(game: StoredGame, now = Date.now()): StoredGame {
   game.trades ??= [];
+  game.chat ??= [];
   game.debt ??= null;
   game.auction ??= null;
   game.pausedAt ??= null;
@@ -136,6 +139,19 @@ function livePlayer(game: StoredGame, token: string): GamePlayer {
   if (game.phase !== "playing") throw new GameError("The game is not in progress.");
   if (player.bankrupt) throw new GameError("Bankrupt players cannot manage assets or trade.");
   return player;
+}
+// Chat works in every phase (including during auctions and debts) for any
+// seated player who has not resigned. Spectators can read but not post.
+export function sendChat(game: StoredGame, input: ChatInput, now = Date.now()) {
+  const player = playerFor(game, input.sessionToken);
+  if (player.resigned) throw new GameError("Resigned players cannot post in table chat.", 403);
+  const text = input.text.replace(/\s+/g, " ").trim();
+  if (!text || text.length > 200) throw new GameError("Chat messages must be between 1 and 200 characters.");
+  const chat = (game.chat ??= []);
+  const last = [...chat].reverse().find(m => m.playerId === player.id);
+  if (last && now - last.at < CHAT_MIN_INTERVAL_MS) throw new GameError("You're sending messages too quickly.", 429);
+  chat.push({ id: randomUUID(), playerId: player.id, name: player.name, color: player.color, text, at: now });
+  if (chat.length > CHAT_LIMIT) chat.splice(0, chat.length - CHAT_LIMIT);
 }
 function checkWinner(game: StoredGame) {
   const alive = game.players.filter(p => !p.bankrupt);
