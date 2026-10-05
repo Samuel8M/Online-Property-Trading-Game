@@ -117,7 +117,7 @@ export default function Lobby() {
           </div>
           {(error || returnError) && <p role="alert" className="rounded-lg bg-primary/10 p-3 text-sm font-medium text-primary" data-testid="text-error">{error || returnError}</p>}
           <p className="text-xs text-muted-foreground">Enter a code without a name to simply watch a game in progress.</p>
-          <p className="text-xs text-muted-foreground">90-second turns keep tables moving. Return using the same browser to recover your seat. Waiting-room seats are saved for five minutes away; running-game seats stay saved unless you resign.</p>
+          <p className="text-xs text-muted-foreground">Take your time — turns have no time limit. Return using the same browser to recover your seat. Waiting-room seats are saved for five minutes away; running-game seats stay saved unless you resign.</p>
           <p className="text-xs text-muted-foreground">Running tables pause and disappear from public discovery after five minutes with no players present. Find them in Your saved tables below and choose Return to restore your seat with fresh deadlines. Watching does not resume a paused table.</p>
         </div>
 
@@ -144,7 +144,7 @@ export default function Lobby() {
                 <div>
                   <p className="font-mono text-lg font-bold">{r.code}</p>
                   <p className="text-sm text-muted-foreground">Hosted by {r.hostName} / {r.players} of {r.maxPlayers} / {r.phase}</p>
-                  <p className="text-xs text-muted-foreground">{r.connectedPlayers ?? 0} connected · {getToken(r.code) ? 'Saved session on this browser' : '90-second turns'}</p>
+                  <p className="text-xs text-muted-foreground">{r.connectedPlayers ?? 0} connected · {getToken(r.code) ? 'Saved session on this browser' : 'Untimed turns'}</p>
                 </div>
                 <button className="btn" disabled={join.isPending || !!returning} onClick={() => (getToken(r.code) ? void doReturn(r.code) : r.phase === 'lobby' ? doJoin(r.code) : watch(r.code))} data-testid={`button-open-${r.code}`}>
                   {getToken(r.code) ? 'Return' : r.phase === 'lobby' && cleanName ? 'Join' : 'Watch'}

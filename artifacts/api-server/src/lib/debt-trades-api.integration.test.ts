@@ -32,7 +32,7 @@ test("debt trade API authorizes off-turn recovery and serializes accept, settlem
         const [p, q, r] = g.players;
         g.phase = "playing"; g.winnerPlayerId = null; g.currentPlayerId = p!.id; g.turnNumber = 1;
         g.lastRoll = []; g.trades = []; g.pendingPayments = []; g.pausedAt = null;
-        delete g.debtContinuation; g.debtTurnRemainingMs = 40000; g.turnDeadline = null;
+        delete g.debtContinuation; g.turnDeadline = null;
         for (const player of g.players) { player.bankrupt = false; player.cash = 1500; player.properties = []; player.lastSeenAt = Date.now(); }
         for (const s of g.board) { s.ownerPlayerId = null; s.buildingLevel = 0; s.mortgaged = false; }
         q!.cash = cash; q!.properties = [5, 12];

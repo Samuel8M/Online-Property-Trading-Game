@@ -20,7 +20,7 @@ import { AuctionPanel } from '@/components/auction';
 import { AuctionAlerts } from '@/components/auction-alerts';
 import { ChatPanel } from '@/components/chat';
 import { DicePair } from '@/components/dice';
-import { ExitSeat, TurnTimer, useRoomClock } from '@/components/room-lifecycle';
+import { ExitSeat, useRoomClock } from '@/components/room-lifecycle';
 import { errMsg, getToken, money, setToken } from '@/lib/session';
 
 export default function Room() {
@@ -131,7 +131,7 @@ export default function Room() {
       {disconnected && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="connection-warning">Connection lost — reconnecting automatically. Your seat is saved, but the server timer keeps running. <button className="underline" onClick={() => q.refetch()}>Retry now</button></div>}
       {watching && <div role="status" className="panel mb-4 p-3 text-sm" data-testid="watching-banner">You are watching without using your saved seat. <Link href="/" className="font-bold underline">Return to the lobby</Link> to join or recover a seat.</div>}
       {game.pausedAt != null && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="room-paused">This table is paused because all players were away for five minutes. Seats, assets, and unfinished decisions are saved. A player must return with the room code and their saved browser session to resume. Watching does not restart the timers.</div>}
-      {game.pausedAt == null && game.resumedAt != null && clock.now - game.resumedAt < 90_000 && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="room-restored">This saved table has resumed. All seats and assets are preserved. Recovery grants a fresh 90-second turn or 30-second auction; outstanding debt must still be resolved before the turn timer runs.</div>}
+      {game.pausedAt == null && game.resumedAt != null && clock.now - game.resumedAt < 90_000 && <div role="status" className="panel mb-4 p-3 text-sm font-bold" data-testid="room-restored">This saved table has resumed. All seats and assets are preserved. A saved auction gets a fresh 30 seconds; outstanding debt must still be resolved.</div>}
 
       <AnimatePresence>
         {rules && (
@@ -139,17 +139,17 @@ export default function Room() {
             <div className="panel mb-4 grid gap-2 p-5 text-sm sm:grid-cols-2" data-testid="panel-rules">
               <p><b>Turn.</b> {classic ? 'Roll both dice and move that many spaces. Doubles earn another roll after resolving the space. Three consecutive doubles send you to Jail.' : 'Roll both dice once per turn and move clockwise. This saved game keeps its original 28-space rules.'}</p>
               <p><b>{classic ? 'GO' : 'Start'}.</b> Everyone begins with $1,500 and earns $200 each time they pass the starting space.</p>
-              <p><b>Buy & auction.</b> Buy an unowned deed at its listed price, or decline to open an auction—even if you cannot afford the listed price. Every live player can bid, including you and players in Jail. Opening bid $10; whole-dollar increases of at least $10, no more than available cash. Withdraw permanently or place a binding bid. The highest bid wins after 30 seconds without a new bid, or when all other players withdraw. No bids leaves the deed with the bank. Timers, trades and property management pause. Afterward the next turn begins, or an earned doubles roll resumes with the saved time.</p>
+              <p><b>Buy & auction.</b> Buy an unowned deed at its listed price, or decline to open an auction—even if you cannot afford the listed price. Every live player can bid, including you and players in Jail. Opening bid $10; whole-dollar increases of at least $10, no more than available cash. Withdraw permanently or place a binding bid. The highest bid wins after 30 seconds without a new bid, or when all other players withdraw. No bids leaves the deed with the bank. Trades and property management pause. Afterward the next turn begins, or an earned doubles roll resumes.</p>
               <p><b>Rent.</b> Pay the current rent shown on the deed. Mortgaged spaces collect none. A full, undeveloped and unmortgaged color group doubles base rent.</p>
               <p><b>Development.</b> During your turn, own a full unmortgaged group to build evenly up to four houses, then a hotel. {classic ? 'The deed shows the standard building cost and rent at every level. Brown/light blue cost $50 per level; pink/orange $100; red/yellow $150; green/dark blue $200.' : 'Copper costs $50 per level; Coral/Garden $100; Violet/Sapphire $150; Rose/Gold $200. House rents are 3/5/7/9× base; a hotel pays 12×.'} Sell evenly from the highest level for half cost. A hotel sells back to four houses. Building supply is unlimited.</p>
               <p><b>Mortgages.</b> Sell every building in a group before mortgaging a deed for half its price. Redeem for that advance plus 10%, rounded up. Mortgaged railroads/utilities do not count toward other deeds' rent.</p>
               <p><b>Trades.</b> The active player may propose one outgoing offer with cash and/or undeveloped deeds. Only the recipient can accept or reject, even off-turn; only the proposer can cancel. Mortgages stay attached with no transfer fee, and the new owner owes redemption. Offers reserve nothing; changed assets or insufficient funds invalidate them. Trades pause during debt resolution.</p>
-              <p><b>Debt.</b> If rent, taxes, Jail fines or cards exceed your cash, the full debt and creditor are saved. Sell buildings or mortgage deeds before paying in full or choosing permanent bankruptcy. This also applies to off-turn card payments. The timer pauses until all debts are resolved, then resumes with the time remaining. Bankruptcy transfers remaining cash, deeds and held Jail cards to the creditor; deeds returned to the bank lose buildings and mortgages.</p>
+              <p><b>Debt.</b> If rent, taxes, Jail fines or cards exceed your cash, the full debt and creditor are saved. Sell buildings or mortgage deeds before paying in full or choosing permanent bankruptcy. This also applies to off-turn card payments. Play continues once all debts are resolved. Bankruptcy transfers remaining cash, deeds and held Jail cards to the creditor; deeds returned to the bank lose buildings and mortgages.</p>
               <p><b>Cards & taxes.</b> {classic ? 'Chance and Community Chest have separate decks. Income Tax costs $200; Luxury Tax costs $100. Repair cards charge for your houses and hotels.' : 'Lucky Break events affect cash and movement. City Levy costs $100; Luxury Tax costs $150.'}</p>
               <p><b>{classic ? 'Jail' : 'Detention'}.</b> {classic ? 'Before rolling, pay $50 or use a card. Otherwise try doubles up to three turns. On the third failed attempt, pay $50 and move. Doubles that release you do not earn another roll.' : 'Pay $50 automatically on your next roll to leave.'}</p>
               <p><b>Transport.</b> {classic && 'Utilities charge 4× the landing dice total, or 10× for two unmortgaged utilities. '}Railroad rent doubles for each additional unmortgaged railroad.</p>
               <p><b>Winning.</b> Bankrupt players are out. Last one standing wins.</p>
-              <p><b>Timers & reconnecting.</b> Each turn has 90 seconds, including doubles. The server skips unfinished actions at expiry, without rolling for you. Away means no contact for 45 seconds. Return in the same browser to reconnect. Running tables pause and leave public discovery after five minutes with no player contact. A saved player session restores them with a fresh turn or auction deadline; spectators cannot resume them. Running-game seats stay saved; waiting-room seats are freed after five minutes away, and an absent host is replaced. Resignation is permanent.</p>
+              <p><b>Turns & reconnecting.</b> Turns have no time limit: take as long as you need, then end your turn. Away means no contact for 45 seconds. Return in the same browser to reconnect. Running tables pause and leave public discovery after five minutes with no player contact. A saved player session restores them; spectators cannot resume them. Running-game seats stay saved; waiting-room seats are freed after five minutes away, and an absent host is replaced. Resignation is permanent.</p>
             </div>
           </motion.div>
         )}
@@ -204,7 +204,6 @@ export default function Room() {
             )}
             {game.phase === 'playing' && (
               <div className="space-y-3">
-                <TurnTimer game={game} now={clock.now} />
                 <DebtPanel game={game} code={code} token={token} disabled={busy} onGame={setGame} onError={setErr} />
                  <AuctionPanel key={game.auction?.id ?? 'none'} game={game} code={code} token={token} now={clock.now} disabled={busy} onGame={setGame} onError={setErr} />
                 <div className="flex items-center justify-between">

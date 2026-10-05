@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createRoom, addPlayer, start, end, roll, view, normalizeGame, resign,
-  reconcileLifecycle, touchPresence, proposeTrade, TURN_DURATION_MS, PRESENCE_TIMEOUT_MS,
+  reconcileLifecycle, touchPresence, proposeTrade, PRESENCE_TIMEOUT_MS,
   LOBBY_SEAT_GRACE_MS,
 } from "./game-engine";
 
@@ -14,40 +14,31 @@ function table() {
   return { game, token, second, third, a: game.players[0]!, b: game.players[1]!, c: game.players[2]! };
 }
 
-test("deadline is persistent, expires exactly once, and does not roll or pay for the player", () => {
+test("turns are untimed: waiting any length of time never skips, rolls or pays for the player", () => {
   const t = table();
-  const deadline = t.game.turnDeadline!;
+  assert.equal(t.game.turnDeadline, null);
   const originalPlayers = structuredClone(t.game.players);
-  reconcileLifecycle(t.game, deadline - 1);
+  const later = Date.now() + 86_400_000;
+  for (const p of t.game.players) p.lastSeenAt = later;
+  reconcileLifecycle(t.game, later);
   assert.equal(t.game.currentPlayerId, t.a.id);
-  reconcileLifecycle(t.game, deadline);
-  assert.equal(t.game.currentPlayerId, t.b.id);
-  assert.equal(t.game.turnNumber, 2);
-  assert.equal(t.game.turnDeadline, deadline + TURN_DURATION_MS);
+  assert.equal(t.game.turnNumber, 1);
+  assert.equal(t.game.turnDeadline, null);
   assert.deepEqual(t.game.players.map(p => [p.cash, p.position, p.properties]), originalPlayers.map(p => [p.cash, p.position, p.properties]));
-  assert.match(t.game.history.join("\n"), /turn was skipped.*timer expired/);
-  reconcileLifecycle(t.game, deadline);
-  assert.equal(t.game.turnNumber, 2);
+  assert.doesNotMatch(t.game.history.join("\n"), /skipped/);
 });
 
-test("doubles and repeated presence cannot extend the turn; expiry preserves resolved purchases", () => {
+test("doubles keep the same player's turn until they end it", () => {
   const t = table();
-  const deadline = t.game.turnDeadline!;
+  t.a.position = 8; // Doubles land on Just Visiting, then Free Parking: no cards or deeds.
   roll(t.game, t.token, [1, 1]);
   end(t.game, t.token);
   assert.equal(t.game.currentPlayerId, t.a.id);
-  assert.equal(t.game.turnDeadline, deadline);
-  touchPresence(t.game, t.token, deadline - 1);
-  assert.equal(t.game.turnDeadline, deadline);
-  t.game.lastRoll = [2, 2]; t.game.extraRoll = true;
-  t.game.board[1]!.ownerPlayerId = t.a.id; t.a.properties = [1]; t.a.cash = 1440;
-  reconcileLifecycle(t.game, deadline);
+  assert.equal(t.game.turnDeadline, null);
+  roll(t.game, t.token, [4, 6]);
+  end(t.game, t.token);
   assert.equal(t.game.currentPlayerId, t.b.id);
-  assert.equal(t.game.extraRoll, false);
-  assert.equal(t.game.consecutiveDoubles, 0);
-  assert.deepEqual(t.game.lastRoll, []);
-  assert.equal(t.a.cash, 1440);
-  assert.equal(t.game.board[1]!.ownerPlayerId, t.a.id);
+  assert.equal(t.game.turnDeadline, null);
 });
 
 test("away and reconnect retain the same running-game seat and cannot revive a resignation", () => {
@@ -73,10 +64,8 @@ test("off-turn resignation returns assets and jail cards and invalidates trades 
   const tile = t.game.board[1]!;
   Object.assign(tile, { ownerPlayerId: t.b.id, buildingLevel: 3, mortgaged: true });
   t.b.properties = [1]; t.b.jailCards = 1; t.game.heldJailCards![t.b.id] = ["chance"];
-  const deadline = t.game.turnDeadline;
   resign(t.game, t.second);
   assert.equal(t.game.currentPlayerId, t.a.id);
-  assert.equal(t.game.turnDeadline, deadline);
   assert.equal(tile.ownerPlayerId, null);
   assert.equal(tile.buildingLevel, 0);
   assert.equal(tile.mortgaged, false);
@@ -138,15 +127,16 @@ test("only waiting-room seats are reclaimed after the grace period", () => {
   assert.equal(t.game.tokens[t.token], t.a.id);
 });
 
-test("legacy JSON gains a saved deadline; restarts do not reset it and public views hide private state", () => {
+test("legacy timed rooms lose their saved deadline and public views hide private state", () => {
   const t = table();
-  delete t.game.turnDeadline;
+  Object.assign(t.game, { turnDeadline: 5000, turnDurationMs: 90_000, debtTurnRemainingMs: 1, auctionTurnRemainingMs: 1 });
   for (const p of t.game.players) { delete p.lastSeenAt; delete p.resigned; delete p.connected; }
   normalizeGame(t.game, 1000);
-  assert.equal(t.game.turnDeadline, 1000 + TURN_DURATION_MS);
+  assert.equal(t.game.turnDeadline, null);
+  for (const key of ["turnDurationMs", "debtTurnRemainingMs", "auctionTurnRemainingMs"]) assert.equal(key in t.game, false);
   const restored = JSON.parse(JSON.stringify(t.game));
-  normalizeGame(restored, 2000);
-  assert.equal(restored.turnDeadline, 1000 + TURN_DURATION_MS);
+  reconcileLifecycle(restored, 1_000_000);
+  assert.equal(restored.currentPlayerId, t.a.id);
   const publicView = view(restored, undefined, 2000);
   assert.equal(publicView.serverTime, 2000);
   for (const key of ["tokens", "chanceDeck", "chestDeck", "heldJailCards"]) assert.equal(key in publicView, false);

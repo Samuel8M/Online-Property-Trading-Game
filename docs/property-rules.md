@@ -10,8 +10,8 @@ Saved waiting rooms also retain their original board when started.
 
 - After rolling onto any unowned purchasable deed (colored property, railroad or
   utility), the active player may buy at list price or explicitly decline and open
-  an auction. Declining works even when list price is unaffordable. A normal turn
-  timeout does not open an auction; it still skips the turn.
+  an auction. Declining works even when list price is unaffordable. Turns have no
+  time limit, so an auction only ever starts from an explicit decline.
 - All live, non-resigned seated players may bid, including the decliner, players
   in Jail, and away players who reconnect. Spectators and bankrupt players cannot.
   Nobody is required to bid. No separate room vote or host approval is needed.
@@ -27,17 +27,16 @@ Saved waiting rooms also retain their original board when started.
   must withdraw for early closure; otherwise timeout closes it unsold. Away seats
   do not block timeout. The highest bidder pays exactly once and gets the deed;
   with no bids it remains unowned. Outcome and bids appear in table history.
-- The normal turn timer pauses. Rolling, buying, ending a turn, managing property,
+- Rolling, buying, ending a turn, managing property,
   trading and resignation are blocked during the auction. Pending trades retain
   their usual validation and may become invalid after the winner pays.
-- Closure completes the declined landing and advances to the next live player
-  with a fresh 90 seconds. On the classic board, an earned doubles roll instead
-  resumes for the original player with their saved time; an unsold property does
-  not reopen an auction on that resolved landing.
-- Auction ID, bids, eligible players, withdrawals, deadline and remaining turn
-  time are stored in the room JSON. Anonymous session tokens authorize actions,
+- Closure completes the declined landing and advances to the next live player.
+  On the classic board, an earned doubles roll instead resumes for the original
+  player; an unsold property does not reopen an auction on that resolved landing.
+- Auction ID, bids, eligible players, withdrawals and deadline are stored in the
+  room JSON. Anonymous session tokens authorize actions,
   and auction IDs reject stale/repeated requests. Room row locks serialize bids
-  and awards with timer expiry. One-second room polling refreshes all sessions;
+  and awards with auction expiry. One-second room polling refreshes all sessions;
   reloads restore the same auction, and the server closes it without any browser.
 
 ## Development
@@ -100,9 +99,8 @@ Saved waiting rooms also retain their original board when started.
   and held Jail cards transfer to the creditor. Inherited deeds retain buildings
   and mortgages; deeds returned to the bank lose both, and held cards return to
   their decks. The bankrupt player is out; the last live player wins.
-- The turn timer pauses without a debt deadline and survives reloads and restarts.
-  After resolution, the original turn resumes with its saved remaining time.
-  A bankrupt active player is skipped and the next player gets a full turn.
+- Debts have no deadline and survive reloads and restarts. After resolution,
+  the original turn continues. A bankrupt active player is skipped.
   An off-turn debtor does not take over the active player's turn.
 - Cards involving multiple players save remaining obligations and resolve them
   in player order, one debt at a time. Bankruptcy cancels later obligations of

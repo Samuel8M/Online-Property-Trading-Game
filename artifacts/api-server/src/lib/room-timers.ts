@@ -56,7 +56,6 @@ export function nextRoomCheck(game: StoredGame): Date | null {
     const contacts = game.players.filter(p => !p.resigned).map(p => p.lastSeenAt!);
     deadlines.push((contacts.length ? Math.max(...contacts) : game.createdAt) + ROOM_ABANDONMENT_MS);
     if (game.auction) deadlines.push(game.auction.deadline);
-    else if (!game.debt && game.turnDeadline != null) deadlines.push(game.turnDeadline);
   }
   return deadlines.length ? new Date(Math.min(...deadlines)) : null;
 }

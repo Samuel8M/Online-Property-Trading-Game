@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import {
   createRoom, addPlayer, start, end, reconcileLifecycle, normalizeGame,
-  type StoredGame, TURN_DURATION_MS, PRESENCE_TIMEOUT_MS, LOBBY_SEAT_GRACE_MS,
+  type StoredGame, PRESENCE_TIMEOUT_MS, LOBBY_SEAT_GRACE_MS,
   ROOM_ABANDONMENT_MS, AUCTION_DURATION_MS, touchPresence,
 } from "./game-engine";
 import { nextRoomCheck, sweepDueRooms, oldestRoomOverdueAge, ROOM_SWEEP_BATCH_SIZE } from "./room-timers";
@@ -15,15 +15,19 @@ function room(code: string, playing = true) {
   if (playing) start(game, token);
   return normalizeGame(game);
 }
+// Presence that is still marked connected but overdue gives the sweeper real work.
+function stale(game: StoredGame, ageMs: number) {
+  for (const player of game.players) player.lastSeenAt = Date.now() - PRESENCE_TIMEOUT_MS - ageMs;
+  return game;
+}
 
-test("next check tracks presence, lobby grace, paused debt, auction and turn deadlines", () => {
+test("next check tracks presence, lobby grace, abandonment and auction deadlines, never turns", () => {
   const game = room("UNIT");
   const now = Date.now();
   for (const player of game.players) player.lastSeenAt = now;
-  game.turnDeadline = now + TURN_DURATION_MS;
   assert.equal(nextRoomCheck(game)?.getTime(), now + PRESENCE_TIMEOUT_MS);
   for (const player of game.players) player.connected = false;
-  assert.equal(nextRoomCheck(game)?.getTime(), game.turnDeadline);
+  assert.equal(nextRoomCheck(game)?.getTime(), now + ROOM_ABANDONMENT_MS);
   game.debt = { id: "debt", debtorPlayerId: game.players[0]!.id, creditorPlayerId: null, amount: 100 };
   assert.equal(nextRoomCheck(game)?.getTime(), now + ROOM_ABANDONMENT_MS);
   game.debt = null;
@@ -77,9 +81,8 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       }
       assert.equal(await oldestRoomOverdueAge(database), 0, "timeout releases and resets the connection");
     });
-    await t.test("a held oldest row cannot delay other deadlines; concurrent sweeps skip each turn once", async () => {
-      const busy = room("BUSY");
-      busy.turnDeadline = Date.now() - 5000;
+    await t.test("a held oldest row cannot delay other deadlines; concurrent sweeps process each room", async () => {
+      const busy = stale(room("BUSY"), 5000);
       await insert(busy);
       const locked = await database.connect();
       await locked.query("BEGIN");
@@ -87,9 +90,7 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       try {
         const count = ROOM_SWEEP_BATCH_SIZE * 3 + 17;
         for (let i = 0; i < count; i++) {
-          const game = room(`DUE${i}`);
-          game.turnDeadline = Date.now() - 1000;
-          await insert(game);
+          await insert(stale(room(`DUE${i}`), 1000));
         }
         // Recent but not due tables must not cost one lock/query apiece.
         const idle = room("IDLE");
@@ -129,11 +130,11 @@ test("indexed due-room processing stays bounded and never waits for a busy table
         assert.equal(due.rows.length, count);
         for (const row of due.rows) {
           const game = row.state as StoredGame;
-          assert.equal(game.turnNumber, 2);
-          assert.equal(game.history.filter(line => line.includes("turn was skipped")).length, 1);
-          assert.ok(game.turnDeadline! > Date.now() + 80_000, "outage recovery gives a full new turn");
+          assert.ok(game.players.every(p => !p.connected), "overdue presence is marked away");
+          assert.equal(game.turnNumber, 1, "untimed turns are never skipped");
+          assert.equal(game.turnDeadline, null);
         }
-        assert.equal((await saved("BUSY")).turnNumber, 1);
+        assert.ok((await saved("BUSY")).players.every(p => p.connected));
         const lockedOnly = await sweepDueRooms(database);
         assert.equal(lockedOnly.processed, 0);
         assert.equal(lockedOnly.saturated, false);
@@ -146,14 +147,13 @@ test("indexed due-room processing stays bounded and never waits for a busy table
         locked.release();
       }
       await Promise.all([sweepDueRooms(database), sweepDueRooms(database)]);
-      assert.equal((await saved("BUSY")).turnNumber, 2);
+      assert.ok((await saved("BUSY")).players.every(p => !p.connected));
       assert.equal(await oldestRoomOverdueAge(database), 0);
       await database.query("TRUNCATE game_rooms");
     });
 
     await t.test("an action holding the same row lock reconciles once before the sweeper resumes", async () => {
-      const game = room("ACTION");
-      game.turnDeadline = Date.now() - 1;
+      const game = stale(room("ACTION"), 1);
       await insert(game);
       const action = await database.connect();
       try {
@@ -166,7 +166,9 @@ test("indexed due-room processing stays bounded and never waits for a busy table
           [JSON.stringify(authoritative), nextRoomCheck(authoritative)]);
         await action.query("COMMIT");
         await Promise.all([sweepDueRooms(database), sweepDueRooms(database)]);
-        assert.equal((await saved("ACTION")).turnNumber, 2);
+        const reconciled = await saved("ACTION");
+        assert.ok(reconciled.players.every(p => !p.connected));
+        assert.equal(reconciled.turnNumber, 1);
       } finally {
         await action.query("ROLLBACK");
         action.release();
@@ -174,7 +176,7 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       await database.query("TRUNCATE game_rooms");
     });
 
-    await t.test("legacy rooms get grace, old deadlines still run, and metadata does not reset room activity", async () => {
+    await t.test("legacy rooms get grace, long-abandoned tables pause, and metadata does not reset room activity", async () => {
       const legacy = room("LEGACY", false);
       for (const player of legacy.players) {
         delete player.lastSeenAt;
@@ -182,14 +184,15 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       }
       await insert(legacy, new Date(0));
       const old = room("OLD");
-      old.turnDeadline = Date.now() - 86_400_000 * 2;
-      await insert(old);
+      Object.assign(old, { turnDeadline: Date.now() - 86_400_000 * 2 }); // Legacy timed save.
+      stale(old, 86_400_000 * 2);
+      await insert(old, new Date(0));
       await database.query("UPDATE game_rooms SET updated_at = NOW() - INTERVAL '2 days'");
       const inactive = room("INACTIVE");
       for (const player of inactive.players) player.connected = false;
-      inactive.turnDeadline = Date.now() + TURN_DURATION_MS;
       // Presence must actually be away, otherwise normalization changes the state.
-      for (const player of inactive.players) player.lastSeenAt = Date.now() - PRESENCE_TIMEOUT_MS - 1;
+      const awaySince = Date.now() - PRESENCE_TIMEOUT_MS - 1;
+      for (const player of inactive.players) player.lastSeenAt = awaySince;
       normalizeGame(inactive);
       await insert(inactive, new Date(0));
       const before = (await database.query("SELECT updated_at FROM game_rooms WHERE code = 'INACTIVE'")).rows[0].updated_at;
@@ -197,10 +200,13 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       const checked = await saved("LEGACY");
       assert.equal(checked.players.length, 2);
       for (const player of checked.players) assert.ok(player.lastSeenAt! > Date.now() - 5000);
-      assert.equal((await saved("OLD")).turnNumber, 2);
+      const oldSaved = await saved("OLD");
+      assert.ok(oldSaved.pausedAt);
+      assert.equal(oldSaved.turnNumber, 1);
+      assert.equal(oldSaved.turnDeadline, null);
       const after = (await database.query("SELECT updated_at, next_reconcile_at FROM game_rooms WHERE code = 'INACTIVE'")).rows[0];
       assert.equal(after.updated_at.getTime(), before.getTime());
-      assert.equal(after.next_reconcile_at.getTime(), inactive.turnDeadline);
+      assert.equal(after.next_reconcile_at.getTime(), awaySince + ROOM_ABANDONMENT_MS);
       await database.query("TRUNCATE game_rooms");
     });
 
@@ -234,7 +240,6 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       await insert(auction);
       const debt = room("DEBT");
       debt.debt = { id: "saved", debtorPlayerId: debt.players[0]!.id, creditorPlayerId: null, amount: 200 };
-      debt.turnDeadline = Date.now() - 1;
       await insert(debt, new Date(0));
       await Promise.all([sweepDueRooms(database), sweepDueRooms(database)]);
       const closed = await saved("AUCTION");
@@ -275,14 +280,11 @@ test("indexed due-room processing stays bounded and never waits for a busy table
             withdrawnPlayerIds: [], highestBid: 50, highestBidderPlayerId: game.players[1]!.id,
             deadline: now - 1, increment: 10,
           };
-          game.auctionTurnRemainingMs = 1000;
         } else if (decision === "debt") {
           game.debt = { id: "saved-debt", debtorPlayerId: game.players[0]!.id, creditorPlayerId: game.players[1]!.id, amount: 1000 };
           game.pendingPayments = [{ debtorPlayerId: game.players[1]!.id, creditorPlayerId: null, amount: 50 }];
-          game.debtTurnRemainingMs = 1000;
         }
         for (const player of game.players) player.lastSeenAt = now - ROOM_ABANDONMENT_MS - 1;
-        game.turnDeadline = now - 1;
         normalizeGame(game, now);
         const before = structuredClone(game);
         await insert(game);
@@ -333,11 +335,8 @@ test("indexed due-room processing stays bounded and never waits for a busy table
         assert.deepEqual(restored.pendingPayments, before.pendingPayments);
         if (decision === "auction") {
           assert.deepEqual(restored.auction, { ...before.auction, deadline: restoredAt + AUCTION_DURATION_MS });
-          assert.equal(restored.auctionTurnRemainingMs, TURN_DURATION_MS);
-        } else if (decision === "debt") {
-          assert.equal(restored.turnDeadline, null);
-          assert.equal(restored.debtTurnRemainingMs, TURN_DURATION_MS);
-        } else assert.equal(restored.turnDeadline, restoredAt + TURN_DURATION_MS);
+        }
+        assert.equal(restored.turnDeadline, null);
         await sweepDueRooms(database);
         assert.equal((await saved(game.code)).resumedAt, restoredAt);
         await database.query("TRUNCATE game_rooms");
@@ -349,12 +348,12 @@ test("indexed due-room processing stays bounded and never waits for a busy table
       const now = Date.now();
       game.players[0]!.lastSeenAt = now - ROOM_ABANDONMENT_MS - 1;
       game.players[1]!.lastSeenAt = now;
-      game.turnDeadline = now - 1;
       await insert(game);
       await sweepDueRooms(database);
       let checked = await saved(game.code);
       assert.equal(checked.pausedAt, null);
-      assert.equal(checked.turnNumber, 2);
+      assert.equal(checked.players[0]!.connected, false);
+      assert.equal(checked.turnNumber, 1);
       checked.pausedAt = now;
       checked.players[0]!.resigned = true;
       const resignedToken = Object.keys(checked.tokens).find(token => checked.tokens[token] === checked.players[0]!.id);

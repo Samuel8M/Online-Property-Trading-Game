@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { pool } from "@workspace/db";
 import type { GameJoinResult, GameView, GameRoomList } from "@workspace/api-zod";
-import { type StoredGame, ROOM_ABANDONMENT_MS, TURN_DURATION_MS } from "./game-engine";
+import { type StoredGame, ROOM_ABANDONMENT_MS, PRESENCE_TIMEOUT_MS } from "./game-engine";
 
 const enabled = process.env.GAME_API_TEST === "1";
 const base = `${process.env.GAME_API_BASE ?? "http://localhost:80"}/api/games`;
@@ -32,7 +32,7 @@ async function fixture(code: string, change: (state: StoredGame) => void) {
   finally { client.release(); }
 }
 
-test("timeouts, reconnects, spectators, and resignations persist and serialize through real APIs", { skip: !enabled }, async () => {
+test("untimed turns, reconnects, spectators, and resignations persist and serialize through real APIs", { skip: !enabled }, async () => {
   let code = "";
   try {
     const created = await post("", { playerName: "Timer API Host" });
@@ -48,20 +48,16 @@ test("timeouts, reconnects, spectators, and resignations persist and serialize t
     const original = await get(code, a);
     const pa = original.players[0]!, pb = original.players[1]!;
 
-    // An action arriving after expiry is denied, but the timeout must COMMIT.
-    await fixture(code, g => { g.turnDeadline = Date.now() - 1; });
-    assert.equal((await post(`/${code}/roll`, { sessionToken: a })).status, 400);
-    let current = await get(code, a);
-    assert.equal(current.currentPlayerId, pb.id);
-    assert.equal(current.turnNumber, 2);
-    assert.deepEqual(current.lastRoll, []);
-    assert.match(current.history.join("\n"), /turn was skipped/);
-    assert.equal(current.players[0]!.cash, 1500);
-
-    // Concurrent viewers may reconcile the same expired turn only once.
+    // Turns are untimed: even a legacy expired deadline never skips the player.
     await fixture(code, g => { g.turnDeadline = Date.now() - 1; });
     const simultaneous = await Promise.all([get(code), get(code), get(code, b)]);
-    for (const state of simultaneous) assert.equal(state.turnNumber, 3);
+    for (const state of simultaneous) {
+      assert.equal(state.turnNumber, 1);
+      assert.equal(state.currentPlayerId, pa.id);
+      assert.equal(state.turnDeadline, null);
+    }
+    let current = await get(code, a);
+    assert.doesNotMatch(current.history.join("\n"), /skipped/);
 
     const awaySince = Date.now() - 60_000;
     await fixture(code, g => { g.players[0]!.lastSeenAt = awaySince; });
@@ -76,35 +72,34 @@ test("timeouts, reconnects, spectators, and resignations persist and serialize t
     assert.equal(rejoined.game.players.length, 3);
     assert.equal(rejoined.game.players[0]!.name, pa.name);
     assert.equal(rejoined.game.players[0]!.connected, true);
-    assert.equal(rejoined.game.turnDeadline, current.turnDeadline);
+    assert.equal(rejoined.game.turnDeadline, null);
     assert.equal("tokens" in rejoined.game, false);
 
     assert.equal((await post(`/${code}/resign`, { sessionToken: "invalid-session-token" })).status, 403);
     assert.equal((await get(code)).players.filter(p => p.resigned).length, 0);
-    const deadline = current.turnDeadline;
     const departures = await Promise.all([
-      post(`/${code}/resign`, { sessionToken: a }),
-      post(`/${code}/resign`, { sessionToken: a }),
+      post(`/${code}/resign`, { sessionToken: b }),
+      post(`/${code}/resign`, { sessionToken: b }),
     ]);
     for (const response of departures) assert.equal(response.status, 200);
-    current = await get(code, a);
-    assert.equal(current.players[0]!.resigned, true);
-    assert.equal(current.players[0]!.connected, false);
-    assert.equal(current.turnDeadline, deadline); // Off-turn resignation doesn't reset a clock.
-    assert.equal(current.turnNumber, 3);
+    current = await get(code, b);
+    assert.equal(current.players[1]!.resigned, true);
+    assert.equal(current.players[1]!.connected, false);
+    assert.equal(current.currentPlayerId, pa.id); // Off-turn resignation doesn't change the turn.
+    assert.equal(current.turnNumber, 1);
     assert.equal(current.history.filter(h => h.includes("resigned permanently")).length, 1);
-    assert.equal((await post(`/${code}/roll`, { sessionToken: a })).status, 400);
+    assert.equal((await post(`/${code}/roll`, { sessionToken: b })).status, 400);
     const finish = await post(`/${code}/resign`, { sessionToken: c });
     assert.equal(finish.status, 200);
     current = finish.data as GameView;
     assert.equal(current.phase, "finished");
-    assert.equal(current.winnerPlayerId, pb.id);
+    assert.equal(current.winnerPlayerId, pa.id);
     assert.equal(current.turnDeadline, null);
     assert.equal(current.currentPlayerId, null);
   } finally { if (code) await pool.query("DELETE FROM game_rooms WHERE code = $1", [code]); }
 });
 
-test("the background sweep advances a persisted expired deadline with no browser requests", { skip: !enabled }, async () => {
+test("the background sweep marks overdue players away with no browser requests, without skipping turns", { skip: !enabled }, async () => {
   let code = "";
   try {
     const created = await post("", { playerName: "Sweep API Host" });
@@ -112,13 +107,16 @@ test("the background sweep advances a persisted expired deadline with no browser
     const first = created.data as GameJoinResult; code = first.game.code;
     await post(`/${code}/players`, { playerName: "Sweep API Partner" });
     assert.equal((await post(`/${code}/start`, { sessionToken: first.sessionToken })).status, 200);
-    await fixture(code, g => { g.turnDeadline = Date.now() - 1; });
+    await fixture(code, g => {
+      for (const player of g.players) { player.lastSeenAt = Date.now() - PRESENCE_TIMEOUT_MS - 1000; player.connected = true; }
+    });
     await new Promise(resolve => setTimeout(resolve, 6500));
     const result = await pool.query("SELECT state FROM game_rooms WHERE code = $1", [code]);
     const state = result.rows[0].state as StoredGame;
-    assert.equal(state.turnNumber, 2);
-    assert.equal(state.currentPlayerId, state.players[1]!.id);
-    assert.ok(state.turnDeadline! > Date.now());
+    assert.ok(state.players.every(p => !p.connected));
+    assert.equal(state.turnNumber, 1);
+    assert.equal(state.currentPlayerId, state.players[0]!.id);
+    assert.equal(state.turnDeadline, null);
   } finally { if (code) await pool.query("DELETE FROM game_rooms WHERE code = $1", [code]); }
 });
 
@@ -182,14 +180,14 @@ test("discovery excludes empty tables before the limit and saved tokens restore 
       assert.equal(recovered.pausedAt, null);
       assert.equal(recovered.turnNumber, baseline.turnNumber);
       assert.deepEqual(recovered.board, baseline.board);
-      assert.equal(recovered.turnDeadline, recovered.resumedAt! + TURN_DURATION_MS);
+      assert.equal(recovered.turnDeadline, null);
       assert.equal(recovered.history.filter(h => h.includes("restored the paused table")).length, 1);
       assert.ok(recovered.myPlayerId);
       assert.equal("tokens" in recovered, false);
     }
     const recovered = await get(code);
     assert.equal(recovered.resumedAt, (responses[0].data as GameJoinResult).game.resumedAt);
-    assert.equal(recovered.turnDeadline, recovered.resumedAt! + TURN_DURATION_MS);
+    assert.equal(recovered.turnDeadline, null);
     const publicAgain = (await (await fetch(base)).json() as GameRoomList).rooms;
     assert.ok(publicAgain.some(r => r.code === code));
   } finally {

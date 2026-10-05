@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addPlayer, createRoom, start, end, buy, roll, manageProperty, proposeTrade,
-  respondTrade, resign, respondAuction, reconcileLifecycle, view, TURN_DURATION_MS,
+  respondTrade, resign, respondAuction, reconcileLifecycle, view,
 } from "./game-engine";
 import type { AuctionResponseInput } from "@workspace/api-zod";
 import { legacyBoardFixture } from "./legacy-board.fixture";
@@ -26,14 +26,12 @@ test("decline starts saved auction without changing the original board or seats"
   const t = table();
   assert.equal(t.game.board.length, 28);
   t.p.cash = 0;
-  const deadline = t.game.turnDeadline!;
   end(t.game, t.a);
   assert.equal(t.game.currentPlayerId, t.p.id);
   assert.equal(t.game.turnDeadline, null);
   assert.equal(t.game.auction!.spaceId, 3);
   assert.equal(t.game.auction!.increment, 10);
   assert.deepEqual(t.game.auction!.eligiblePlayerIds, t.game.players.map(p => p.id));
-  assert.ok(t.game.auctionTurnRemainingMs! <= deadline - Date.now() + 10);
   const restored = JSON.parse(JSON.stringify(t.game));
   const publicState = view(restored, t.b);
   assert.deepEqual(publicState.auction, t.game.auction);
@@ -81,7 +79,7 @@ test("withdrawals, absent bidders, persisted deadline and no-bid closure cannot 
   reconcileLifecycle(saved, now);
   assert.equal(saved.players[1].cash, 1490);
   assert.equal(saved.board[3].ownerPlayerId, u.q.id);
-  assert.equal(saved.turnDeadline, now + TURN_DURATION_MS);
+  assert.equal(saved.turnDeadline, null);
   reconcileLifecycle(saved, now);
   assert.equal(saved.players[1].cash, 1490);
   const v = table(); end(v.game, v.a);
@@ -104,7 +102,7 @@ test("new bids reset deadline; withdrawals do not; stale IDs and ineligible seat
   assert.equal(t.game.auction, null);
 });
 
-test("auction pauses all conflicting actions without auto-starting on a turn timeout", () => {
+test("auction pauses all conflicting actions and never auto-starts without a decline", () => {
   const t = table(); end(t.game, t.a);
   for (const fn of [
     () => end(t.game, t.a), () => buy(t.game, t.a), () => roll(t.game, t.a),
@@ -114,23 +112,22 @@ test("auction pauses all conflicting actions without auto-starting on a turn tim
     () => respondTrade(t.game, { sessionToken: t.b, tradeId: "test", action: "accept" }),
   ]) assert.throws(fn, /auction/);
   assert.throws(() => start(t.game, t.a), /already started/);
-  const u = table(); reconcileLifecycle(u.game, u.game.turnDeadline!);
+  const u = table(); reconcileLifecycle(u.game, Date.now() + 600_000);
   assert.equal(u.game.auction, null);
-  assert.equal(u.game.currentPlayerId, u.q.id);
+  assert.equal(u.game.currentPlayerId, u.p.id);
   const v = table(); v.game.debt = { id: "debt", debtorPlayerId: v.p.id, creditorPlayerId: null, amount: 100 };
   assert.throws(() => end(v.game, v.a), /debt/);
   assert.equal(v.game.auction, undefined);
 });
 
-test("classic doubles resume only once with saved time even when unsold; high-ID utilities auction too", () => {
+test("classic doubles resume only once even when unsold; high-ID utilities auction too", () => {
   const t = table(false); t.game.extraRoll = true; t.game.consecutiveDoubles = 1;
   end(t.game, t.a);
-  const remaining = t.game.auctionTurnRemainingMs!;
   const now = t.game.auction!.deadline;
   reconcileLifecycle(t.game, now);
   assert.equal(t.game.currentPlayerId, t.p.id);
   assert.deepEqual(t.game.lastRoll, []);
-  assert.equal(t.game.turnDeadline, now + remaining);
+  assert.equal(t.game.turnDeadline, null);
   assert.equal(t.game.turnNumber, 1);
   assert.throws(() => end(t.game, t.a), /Roll/);
   t.game.lastRoll = [1, 2]; t.p.position = 28;

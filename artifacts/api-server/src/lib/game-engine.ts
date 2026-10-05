@@ -11,16 +11,13 @@ export type StoredGame = Omit<GameView, "myPlayerId" | "serverTime"> & {
   chestDeck?: number[];
   heldJailCards?: Record<string, ("chance" | "chest")[]>;
   pendingPayments?: { debtorPlayerId: string; creditorPlayerId: string | null; amount: number }[];
-  debtTurnRemainingMs?: number;
   debtContinuation?: { playerId: string; steps: number };
-  auctionTurnRemainingMs?: number;
 };
 export class GameError extends Error {
   constructor(message: string, public status = 400) { super(message); }
 }
 
 const colors = ["#f97316", "#27b7b0", "#9b7cf4", "#e65b84", "#f0bb40", "#5482ee"];
-export const TURN_DURATION_MS = 90_000;
 export const AUCTION_DURATION_MS = 30_000;
 export const AUCTION_INCREMENT = 10;
 export const PRESENCE_TIMEOUT_MS = 45_000;
@@ -47,9 +44,12 @@ export function normalizeGame(game: StoredGame, now = Date.now()): StoredGame {
   game.auction ??= null;
   game.pausedAt ??= null;
   game.resumedAt ??= null;
-  game.turnDurationMs = TURN_DURATION_MS;
-  game.turnDeadline ??= game.phase === "playing" ? now + TURN_DURATION_MS : null;
-  if (game.phase !== "playing" || game.debt || game.auction || game.pausedAt !== null) game.turnDeadline = null;
+  // Turns are untimed: players keep their turn until they end it. Legacy rooms
+  // saved with a turn deadline (or leftover timer bookkeeping) are cleared.
+  game.turnDeadline = null;
+  delete game.turnDurationMs;
+  delete (game as { debtTurnRemainingMs?: number }).debtTurnRemainingMs;
+  delete (game as { auctionTurnRemainingMs?: number }).auctionTurnRemainingMs;
   for (const player of game.players) {
     // Old rooms get a full reconnect grace period, not an immediate timeout.
     player.lastSeenAt ??= now;
@@ -110,14 +110,14 @@ export function createRoom(code: string, name: string): { game: StoredGame; toke
   const game: StoredGame = {
     code, phase: "lobby", players: [], board: makeBoard(), currentPlayerId: null,
     turnNumber: 1, lastRoll: [], message: "", history: [], winnerPlayerId: null,
-    createdAt: Date.now(), tokens: {}, trades: [], consecutiveDoubles: 0, extraRoll: false, rollSerial: 0,
+    createdAt: Date.now(), tokens: {}, trades: [], consecutiveDoubles: 0, extraRoll: false, rollSerial: 0, turnDeadline: null,
     chanceDeck: shuffledDeck(), chestDeck: shuffledDeck(), heldJailCards: {},
   };
   return { game, token: addPlayer(game, name) };
 }
 export function view(game: StoredGame, token?: string, now = Date.now()): GameView {
   normalizeGame(game, now);
-  const { tokens, chanceDeck, chestDeck, heldJailCards, pendingPayments, debtTurnRemainingMs, debtContinuation, auctionTurnRemainingMs, ...publicGame } = game;
+  const { tokens, chanceDeck, chestDeck, heldJailCards, pendingPayments, debtContinuation, ...publicGame } = game;
   return { ...publicGame, serverTime: now, myPlayerId: token ? tokens[token] ?? null : null };
 }
 function playerFor(game: StoredGame, token: string): GamePlayer {
@@ -157,7 +157,6 @@ function checkWinner(game: StoredGame) {
   const alive = game.players.filter(p => !p.bankrupt);
   if (alive.length === 1) {
     game.phase = "finished";
-    game.turnDeadline = null;
     game.currentPlayerId = null;
     game.extraRoll = false;
     game.winnerPlayerId = alive[0]!.id;
@@ -171,10 +170,8 @@ function pay(game: StoredGame, player: GamePlayer, amount: number, creditor?: Ga
     return;
   }
   if (player.cash < amount) {
-    game.debtTurnRemainingMs ??= Math.max(1, (game.turnDeadline ?? Date.now() + TURN_DURATION_MS) - Date.now());
     game.debt = { id: randomUUID(), debtorPlayerId: player.id, creditorPlayerId: creditor?.id ?? null, amount };
-    game.turnDeadline = null;
-    addHistory(game, `${player.name} owes $${amount} to ${creditor?.name ?? "the bank"}. Sell buildings or mortgage deeds, then pay or declare bankruptcy. The turn timer is paused.`);
+    addHistory(game, `${player.name} owes $${amount} to ${creditor?.name ?? "the bank"}. Sell buildings or mortgage deeds, then pay or declare bankruptcy.`);
     return;
   }
   player.cash -= amount;
@@ -243,11 +240,7 @@ export function resolveDebt(game: StoredGame, input: DebtResolutionInput) {
     }
   }
   if (game.debt) return;
-  if (game.phase === "playing") {
-    if (game.players.find(p => p.id === game.currentPlayerId)?.bankrupt) advanceTurn(game);
-    else game.turnDeadline = Date.now() + (game.debtTurnRemainingMs ?? TURN_DURATION_MS);
-  }
-  delete game.debtTurnRemainingMs;
+  if (game.phase === "playing" && game.players.find(p => p.id === game.currentPlayerId)?.bankrupt) advanceTurn(game);
   delete game.pendingPayments;
 }
 function move(game: StoredGame, player: GamePlayer, steps: number) {
@@ -381,7 +374,6 @@ export function start(game: StoredGame, token: string) {
   if (game.players.length < 2) throw new GameError("Invite at least one more player to start.");
   game.phase = "playing";
   game.currentPlayerId = game.players[0]!.id;
-  game.turnDeadline = Date.now() + TURN_DURATION_MS;
   addHistory(game, `The pursuit begins! ${game.players[0]!.name} rolls first.`);
 }
 export function roll(game: StoredGame, token: string, dice: [number, number] = [randomInt(1, 7), randomInt(1, 7)]) {
@@ -477,14 +469,12 @@ export function end(game: StoredGame, token: string) {
   const tile = game.board[player.position]!;
   if (!player.jailed && tile.price !== null && !tile.ownerPlayerId) {
     const now = Date.now();
-    game.auctionTurnRemainingMs = Math.max(1, (game.turnDeadline ?? now + TURN_DURATION_MS) - now);
     game.auction = {
       id: randomUUID(), spaceId: tile.id,
       eligiblePlayerIds: game.players.filter(p => !p.bankrupt && !p.resigned).map(p => p.id),
       withdrawnPlayerIds: [], highestBid: 0, highestBidderPlayerId: null,
       deadline: now + AUCTION_DURATION_MS, increment: AUCTION_INCREMENT,
     };
-    game.turnDeadline = null;
     addHistory(game, `${player.name} declined ${tile.name}. Auction open: bid at least $10 or withdraw. All live players may participate.`);
     return;
   }
@@ -516,8 +506,6 @@ function closeAuction(game: StoredGame, now: number) {
     addHistory(game, `${winner.name} won ${tile.name} at auction for $${auction.highestBid}.`);
   } else addHistory(game, `No bids for ${tile.name}. It remains with the bank.`);
   game.auction = null;
-  game.turnDeadline = now + (game.auctionTurnRemainingMs ?? TURN_DURATION_MS);
-  delete game.auctionTurnRemainingMs;
   finishLanding(game, game.players.find(p => p.id === game.currentPlayerId)!, now);
 }
 
@@ -560,7 +548,6 @@ function advanceTurn(game: StoredGame, now = Date.now()) {
   game.currentPlayerId = next.id;
   game.turnNumber += 1;
   game.lastRoll = [];
-  game.turnDeadline = now + TURN_DURATION_MS;
   addHistory(game, `${next.name}'s turn. Time to roll.`);
 }
 
@@ -575,7 +562,7 @@ export function reconcileLifecycle(game: StoredGame, now = Date.now()) {
       for (const [token, id] of Object.entries(game.tokens)) if (id === player.id) delete game.tokens[token];
       addHistory(game, `${player.name}'s waiting-room seat was freed after five minutes away.`);
     }
-    if (!game.players.length) { game.phase = "finished"; game.turnDeadline = null; return; }
+    if (!game.players.length) { game.phase = "finished"; return; }
     const host = game.players.find(p => p.isHost);
     const replacement = game.players.find(p => p.connected && p.id !== host?.id);
     if ((!host || !host.connected) && replacement) {
@@ -590,8 +577,7 @@ export function reconcileLifecycle(game: StoredGame, now = Date.now()) {
   const lastContact = contacts.length ? Math.max(...contacts) : game.createdAt;
   if (now >= lastContact + ROOM_ABANDONMENT_MS) {
     game.pausedAt = now;
-    game.turnDeadline = null;
-    addHistory(game, "Table paused after five minutes with no players present. Seats and assets are saved. Return with your room code and saved browser session to resume with fresh deadlines.");
+    addHistory(game, "Table paused after five minutes with no players present. Seats and assets are saved. Return with your room code and saved browser session to resume.");
     return;
   }
   if (game.auction) {
@@ -600,18 +586,7 @@ export function reconcileLifecycle(game: StoredGame, now = Date.now()) {
   }
   if (game.debt) return;
   const current = game.players.find(p => p.id === game.currentPlayerId);
-  if (current?.bankrupt) {
-    advanceTurn(game, now);
-    return;
-  }
-  if (game.turnDeadline !== null && now >= game.turnDeadline!) {
-    const explanation = game.lastRoll.length
-      ? "Remaining purchases and extra rolls were passed; resolved payments remain."
-      : "No dice were rolled and no money or properties changed.";
-    addHistory(game, `${current?.name ?? "The player"}'s turn was skipped: the 90-second timer expired. ${explanation} Their seat is saved.`);
-    // Give the next player a full turn, even after a server outage.
-    advanceTurn(game, now);
-  }
+  if (current?.bankrupt) advanceTurn(game, now);
 }
 
 export function touchPresence(game: StoredGame, token: string | undefined, now = Date.now()) {
@@ -625,13 +600,8 @@ export function touchPresence(game: StoredGame, token: string | undefined, now =
   if (resuming) {
     game.pausedAt = null;
     game.resumedAt = now;
-    if (game.debt) {
-      game.debtTurnRemainingMs = TURN_DURATION_MS;
-    } else if (game.auction) {
-      game.auction.deadline = now + AUCTION_DURATION_MS;
-      game.auctionTurnRemainingMs = TURN_DURATION_MS;
-    } else game.turnDeadline = now + TURN_DURATION_MS;
-    addHistory(game, `${player.name} restored the paused table. All seats and assets are preserved. ${game.debt ? "The outstanding debt still needs resolution; the turn timer stays paused." : game.auction ? "The saved auction has a fresh 30-second deadline." : "The current player has a fresh 90-second turn."}`);
+    if (game.auction) game.auction.deadline = now + AUCTION_DURATION_MS;
+    addHistory(game, `${player.name} restored the paused table. All seats and assets are preserved.${game.debt ? " The outstanding debt still needs resolution." : game.auction ? " The saved auction has a fresh 30-second deadline." : ""}`);
   } else if (wasAway) addHistory(game, `${player.name} reconnected. Their seat and assets are preserved.`);
   if (game.phase === "lobby" && !game.players.some(p => p.isHost && p.connected)) {
     for (const p of game.players) p.isHost = p.id === player.id;

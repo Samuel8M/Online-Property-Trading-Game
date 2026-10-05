@@ -23,12 +23,11 @@ function resolve(game: StoredGame, token: string, action: "settle" | "bankrupt" 
 }
 const restore = (game: StoredGame) => normalizeGame(JSON.parse(JSON.stringify(game)));
 
-test("tax debt persists with full amount, pauses timer and blocks all competing actions", () => {
+test("tax debt persists with full amount and blocks all competing actions", () => {
   const t = table(); t.p.cash = 50; t.p.position = 1;
   own(t.game, t.p.id, [1, 3, 5]);
   proposeTrade(t.game, { sessionToken: t.a, recipientPlayerId: t.q.id, offeredCash: 0, requestedCash: 0, offeredPropertyIds: [5], requestedPropertyIds: [] });
   const tradeId = t.game.trades[0]!.id;
-  t.game.turnDeadline = Date.now() + 40000;
   roll(t.game, t.a, [1, 2]);
   assert.equal(t.p.cash, 50); assert.equal(t.p.bankrupt, false);
   assert.equal(t.game.debt!.amount, 200); assert.equal(t.game.debt!.creditorPlayerId, null);
@@ -52,7 +51,7 @@ test("tax debt persists with full amount, pauses timer and blocks all competing 
   resolve(g, t.a);
   assert.equal(g.players[0]!.cash, 10); assert.equal(g.debt, null);
   assert.equal(g.currentPlayerId, t.p.id);
-  assert.ok(g.turnDeadline! - Date.now() <= 40000 && g.turnDeadline! - Date.now() > 39000);
+  assert.equal(g.turnDeadline, null);
   assert.throws(() => resolveDebt(g, { sessionToken: t.a, debtId: id, action: "settle" }), /no longer/);
   end(g, t.a); assert.equal(g.currentPlayerId, t.q.id);
 });

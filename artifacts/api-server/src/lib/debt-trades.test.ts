@@ -10,7 +10,6 @@ function table() {
   q!.cash = 10;
   q!.properties = [5, 12]; game.board[5]!.ownerPlayerId = q!.id; game.board[12]!.ownerPlayerId = q!.id;
   game.debt = { id: "saved-debt", debtorPlayerId: q!.id, creditorPlayerId: p!.id, amount: 100 };
-  game.debtTurnRemainingMs = 40000; game.turnDeadline = null;
   const offer = { sessionToken: b, debtId: game.debt.id, recipientPlayerId: r!.id,
     offeredCash: 0, requestedCash: 90, offeredPropertyIds: [5], requestedPropertyIds: [] };
   return { game, a, b, c, p: p!, q: q!, r: r!, offer };

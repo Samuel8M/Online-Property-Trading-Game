@@ -46,6 +46,6 @@ export function AuctionPanel({ game, code, token, now, disabled, onGame, onError
     <ul className="text-xs space-y-1" aria-label="Auction participants">
       {auction.eligiblePlayerIds.map(id => <li key={id}>{game.players.find(p => p.id === id)?.name}: {id === auction.highestBidderPlayerId ? 'leading' : auction.withdrawnPlayerIds.includes(id) ? 'withdrawn' : 'may bid'}</li>)}
     </ul>
-    <p className="text-xs text-muted-foreground">The turn timer, property management, trades and resignation pause until this auction closes. No bids means the deed stays with the bank.</p>
+    <p className="text-xs text-muted-foreground">Property management, trades and resignation pause until this auction closes. No bids means the deed stays with the bank.</p>
   </section>;
 }

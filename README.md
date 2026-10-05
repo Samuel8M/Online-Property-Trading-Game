@@ -7,8 +7,8 @@ No accounts needed.
 **Features:** the full board, animated dice, doubles and three-doubles-to-Jail,
 Jail (doubles, $50 fine, Get Out of Jail Free cards), separate Chance and Community
 Chest decks, houses and hotels with even building, mortgages, cash/deed trades,
-auctions for declined deeds, debt recovery and bankruptcy, table chat, 90-second
-turn timers, spectators, and reconnecting to your seat after a reload.
+auctions for declined deeds, debt recovery and bankruptcy, table chat, untimed
+turns, spectators, and reconnecting to your seat after a reload.
 
 ## Deploy your own (free)
 

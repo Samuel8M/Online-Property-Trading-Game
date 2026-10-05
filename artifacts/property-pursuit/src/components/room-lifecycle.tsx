@@ -20,17 +20,6 @@ export function useRoomClock(game: GameView | undefined, updatedAt: number) {
   };
 }
 
-export function TurnTimer({ game, now }: { game: GameView; now: number }) {
-  if (game.auction) return <div className="rounded-lg border-2 border-border p-3 text-sm font-bold" data-testid="turn-timer">Turn timer paused — property auction in progress.</div>;
-  if (game.debt) return <div className="rounded-lg border-2 border-border p-3 text-sm font-bold" data-testid="turn-timer">Turn timer paused — resolve the debt to continue.</div>;
-  if (game.phase !== 'playing' || game.turnDeadline == null) return null;
-  const seconds = Math.max(0, Math.ceil((game.turnDeadline - now) / 1000));
-  return <div className={`rounded-lg border-2 p-3 ${seconds <= 15 ? 'border-primary text-primary' : 'border-border'}`} data-testid="turn-timer">
-    <p className="font-mono font-bold">Turn timer: {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</p>
-    <p className="mt-1 text-xs">{seconds === 0 ? 'Waiting for the server to advance the turn…' : '90 seconds per turn, including doubles. Unfinished actions are passed when time runs out.'}</p>
-  </div>;
-}
-
 export function ExitSeat({ game, code, token, disabled, onGame, onToken, onError }: {
   game: GameView; code: string; token: string; disabled: boolean;
   onGame: (game: GameView) => void; onToken: (token: string) => void; onError: (error: string) => void;

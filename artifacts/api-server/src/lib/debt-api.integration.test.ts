@@ -41,7 +41,7 @@ test("debt APIs survive reloads, prevent bypasses and serialize duplicate settle
       p.cash = 10; p.position = 36; p.properties = [5]; q.properties = [39];
       g.board[5]!.ownerPlayerId = p.id; g.board[39]!.ownerPlayerId = q.id;
       roll(g, a, [1, 2]);
-      // Even an expired saved timestamp must not skip a debt.
+      // A legacy saved turn timestamp must not skip a debt.
       g.turnDeadline = Date.now() - 10000;
     });
     const load = () => fetch(`${base}/${code}`, { headers: { "X-Game-Token": a } }).then(r => r.json()).then(data => GetGameResponse.parse(data));
@@ -65,7 +65,7 @@ test("debt APIs survive reloads, prevent bypasses and serialize duplicate settle
     const paid = await load();
     assert.equal(paid.debt, null); assert.equal(paid.players[0]!.cash, 60); assert.equal(paid.players[1]!.cash, 1550);
     assert.equal(paid.currentPlayerId, current.players[0]!.id);
-    assert.ok(paid.turnDeadline! > Date.now());
+    assert.equal(paid.turnDeadline, null);
 
     await fixture(code, g => {
       g.lastRoll = []; g.players[0]!.position = 36; g.players[0]!.cash = 10;
